@@ -1,0 +1,6 @@
+fastapi
+psycopg2-binary
+psutil
+pywin32
+uvicorn[standard]
+
