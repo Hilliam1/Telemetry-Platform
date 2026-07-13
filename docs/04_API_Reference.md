@@ -1,34 +1,53 @@
 # API Reference
 
-The API layer is planned for a future release.
+The current API is implemented in `app/api.py` with FastAPI.
 
-## Planned Endpoints
+## Current Endpoints
 
 ### `GET /health`
 
-Returns API and database health.
+Planned. This endpoint is not implemented yet.
+
+### `GET /`
+
+Returns a basic API status message.
 
 ### `GET /events`
 
-Returns recent telemetry events.
+Planned naming. Current implementation uses `GET /logs`.
 
-### `GET /events/{id}`
+### `GET /logs`
 
-Returns one event by ID.
+Returns the latest 100 log events.
 
-### `GET /processes`
+### `GET /logs/provider/{provider}`
 
-Returns process creation telemetry.
+Returns up to 100 log events where the provider name matches the path parameter.
 
-### `GET /hosts/{host_name}/metrics`
+### `GET /logs/event/{event_id}`
 
-Returns host health metrics.
+Returns up to 100 log events matching an event ID.
 
-### `GET /collector-runs`
+### `GET /logs/search?term=value`
 
-Returns collector execution history.
+Searches message, provider name, and source host.
+
+### `GET /logs/source/{source_type}`
+
+Returns up to 100 log events matching a source type.
+
+### `GET /stats/event-counts`
+
+Returns event counts grouped by event ID.
+
+### `GET /metrics/latest`
+
+Returns the latest host metric record.
+
+### `GET /metrics`
+
+Returns the latest 100 host metric records.
 
 ## Future Notes
 
-The API should support filtering by host, source type, provider, event ID, severity, and time range.
-
+The API should add health checks, response models, pagination, time-range filters, error handling, authentication planning, and collector-run endpoints.

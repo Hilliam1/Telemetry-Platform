@@ -1,6 +1,10 @@
 # SQL Guide
 
-This guide will hold useful SQL for operations, analysis, and threat hunting.
+The repository includes starter SQL files in `sql/`.
+
+- `001_create_tables.sql` creates the initial telemetry tables.
+- `002_create_indexes.sql` adds query indexes.
+- `basic_queries.sql` contains common operational and analysis queries.
 
 ## Latest Events
 
@@ -46,4 +50,3 @@ FROM collector_runs
 ORDER BY started_at DESC
 LIMIT 20;
 ```
-

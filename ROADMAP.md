@@ -12,9 +12,10 @@
 
 - Structured telemetry documentation
 - Database schema documentation
-- API reference planning
+- API reference alignment
 - Deployment guide
 - Troubleshooting guide
+- v0.0.2 refactor planning
 
 ## Future
 
@@ -27,4 +28,3 @@
 - Alerting workflow
 - Docker deployment
 - Unit, parser, API, and database tests
-

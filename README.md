@@ -4,7 +4,7 @@ Enterprise Telemetry Platform is a Python-based security telemetry project for c
 
 It is designed as an extensible platform for collecting, normalizing, storing, and querying system, security, and performance data across Windows, Linux, Proxmox, and future infrastructure.
 
-The current version focuses on Windows Event Log and Sysmon collection, PostgreSQL storage, process event extraction, collector state tracking, and host health metrics.
+The current version focuses on Windows Event Log and Sysmon collection, PostgreSQL storage, process event extraction, collector state tracking, host health metrics, and a small FastAPI query service.
 
 ## Current Features
 
@@ -15,8 +15,10 @@ The current version focuses on Windows Event Log and Sysmon collection, PostgreS
 - Local state file support to avoid reprocessing old events
 - Optional host metrics with `psutil`
 - Environment-based configuration
+- SQL schema, index, and starter query files
+- FastAPI endpoints for logs, metrics, search, and event counts
 
-## Architecture
+## Current Architecture
 
 ```text
 Windows Event Logs
@@ -31,7 +33,28 @@ Parsing and Normalization
 PostgreSQL Database
         |
         v
-API and Dashboard Layer
+FastAPI Query Service
+```
+
+## Target Architecture
+
+```text
+Windows, Linux, Proxmox, and Future Sources
+        |
+        v
+Collector Layer
+        |
+        v
+Normalization Layer
+        |
+        v
+PostgreSQL Database
+        |
+        v
+REST API
+        |
+        v
+Dashboard and Detection Layer
 ```
 
 ## Repository Layout
@@ -39,8 +62,12 @@ API and Dashboard Layer
 ```text
 Telemetry-Platform/
 |-- app/
+|   |-- api.py
 |   `-- ingest.py
 |-- sql/
+|   |-- 001_create_tables.sql
+|   |-- 002_create_indexes.sql
+|   `-- basic_queries.sql
 |-- docs/
 |   |-- adr/
 |   |-- 00_Project_Overview.md
@@ -85,6 +112,12 @@ copy .env.example .env
 python app\ingest.py
 ```
 
+5. Run the API.
+
+```powershell
+uvicorn app.api:app --reload
+```
+
 ## Documentation
 
 The `docs/` directory is written like an engineering manual. It explains the project goals, architecture, ingestion logic, database design, event parsing strategy, deployment process, and troubleshooting workflow.
@@ -93,4 +126,4 @@ For a beginner-friendly explanation of the collector code, start with `docs/brea
 
 ## Status
 
-This project is in early development. The current milestone is a working Windows telemetry collector with professional documentation and a clean foundation for future API, dashboard, Linux, Proxmox, and Wazuh integrations.
+This project is in early development. The current milestone is a working Windows telemetry collector, a basic API, reproducible SQL setup files, professional documentation, and a clean foundation for future dashboard, Linux, Proxmox, and Wazuh integrations.
