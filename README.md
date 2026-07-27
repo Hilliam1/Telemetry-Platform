@@ -62,7 +62,10 @@ Dashboard and Detection Layer
 ```text
 Telemetry-Platform/
 |-- app/
+|   |-- __init__.py
 |   |-- api.py
+|   |-- config.py
+|   |-- database.py
 |   `-- ingest.py
 |-- sql/
 |   |-- 001_create_tables.sql
@@ -109,13 +112,13 @@ copy .env.example .env
 4. Run the collector.
 
 ```powershell
-python app\ingest.py
+py -m app.ingest
 ```
 
 5. Run the API.
 
 ```powershell
-uvicorn app.api:app --reload
+py -m uvicorn app.api:app --reload
 ```
 
 ## Documentation
