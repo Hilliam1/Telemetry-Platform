@@ -40,6 +40,7 @@ def test_rejects_negative_record_id():
         )
 
 
+@patch("app.windows_reader.win32evtlog.CloseEventLog")
 @patch("app.windows_reader.win32evtlog.EvtRender")
 @patch("app.windows_reader.win32evtlog.EvtNext")
 @patch("app.windows_reader.win32evtlog.EvtQuery")
@@ -47,6 +48,7 @@ def test_reads_and_renders_events(
     mock_query,
     mock_next,
     mock_render,
+    mock_close,
 ):
     query_handle = Mock()
     event_one = Mock()
@@ -73,35 +75,64 @@ def test_reads_and_renders_events(
         "<Event>one</Event>",
         "<Event>two</Event>",
     ]
+    mock_close.assert_called_once_with(query_handle)
 
 
+@patch("app.windows_reader.win32evtlog.CloseEventLog")
 @patch("app.windows_reader.win32evtlog.EvtNext")
 @patch("app.windows_reader.win32evtlog.EvtQuery")
 def test_no_more_items_ends_reading(
     mock_query,
     mock_next,
+    mock_close,
 ):
-    mock_query.return_value = Mock()
+    query_handle = Mock()
+    mock_query.return_value = query_handle
     mock_next.side_effect = make_windows_error(259)
 
     reader = WindowsEventReader(batch_size=100)
 
     assert reader.read_channel("System") == []
+    mock_close.assert_called_once_with(query_handle)
 
 
+@patch("app.windows_reader.win32evtlog.CloseEventLog")
 @patch("app.windows_reader.win32evtlog.EvtNext")
 @patch("app.windows_reader.win32evtlog.EvtQuery")
 def test_unexpected_windows_error_is_raised(
     mock_query,
     mock_next,
+    mock_close,
 ):
-    mock_query.return_value = Mock()
+    query_handle = Mock()
+    mock_query.return_value = query_handle
     mock_next.side_effect = make_windows_error(5)
 
     reader = WindowsEventReader(batch_size=100)
 
     with pytest.raises(pywintypes.error):
         reader.read_channel("Security")
+    mock_close.assert_called_once_with(query_handle)
+
+
+@patch("app.windows_reader.win32evtlog.CloseEventLog")
+@patch("app.windows_reader.win32evtlog.EvtNext")
+@patch("app.windows_reader.win32evtlog.EvtQuery")
+def test_query_handle_closes_after_read_error(
+    mock_query,
+    mock_next,
+    mock_close,
+):
+    query_handle = Mock()
+    mock_query.return_value = query_handle
+    mock_next.side_effect = make_windows_error(5)
+
+    reader = WindowsEventReader(batch_size=100)
+
+    with pytest.raises(pywintypes.error):
+        reader.read_channel("Security")
+
+    mock_close.assert_called_once_with(query_handle)
 
 
 @patch("app.windows_reader.win32evtlog.EvtNext")

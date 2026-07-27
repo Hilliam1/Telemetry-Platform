@@ -43,21 +43,24 @@ class WindowsEventReader:
 
         query = self._build_query(last_record_id)
 
-        handle = win32evtlog.EvtQuery(
+        query_handle = win32evtlog.EvtQuery(
             channel,
             win32evtlog.EvtQueryChannelPath,
             query,
         )
 
-        event_handles = self._read_handles(handle)
+        try:
+            event_handles = self._read_handles(query_handle)
 
-        return [
-            win32evtlog.EvtRender(
-                event_handle,
-                win32evtlog.EvtRenderEventXml,
-            )
-            for event_handle in event_handles
-        ]
+            return [
+                win32evtlog.EvtRender(
+                    event_handle,
+                    win32evtlog.EvtRenderEventXml,
+                )
+                for event_handle in event_handles
+            ]
+        finally:
+            win32evtlog.CloseEventLog(query_handle)
 
     def _read_handles(self, query_handle: Any) -> list[Any]:
         events: list[Any] = []
