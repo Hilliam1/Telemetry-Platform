@@ -1,20 +1,8 @@
-import os
-
-import psycopg2
+from app.database import database_connection
 from fastapi import FastAPI
 
 
 app = FastAPI()
-
-
-def get_connection():
-    return psycopg2.connect(
-        host=os.getenv("PGHOST", "localhost"),
-        database=os.getenv("PGDATABASE", "sysmon_lab"),
-        user=os.getenv("PGUSER", "postgres"),
-        password=os.getenv("PGPASSWORD", ""),
-        port=int(os.getenv("PGPORT", "5432")),
-    )
 
 
 @app.get("/")
@@ -24,7 +12,7 @@ def root():
 
 @app.get("/logs")
 def get_logs():
-    with get_connection() as conn:
+    with database_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
@@ -61,7 +49,7 @@ def get_logs():
 
 @app.get("/logs/provider/{provider}")
 def get_by_provider(provider: str):
-    with get_connection() as conn:
+    with database_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
@@ -94,7 +82,7 @@ def get_by_provider(provider: str):
 
 @app.get("/logs/event/{event_id}")
 def get_by_event(event_id: int):
-    with get_connection() as conn:
+    with database_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
@@ -127,7 +115,7 @@ def get_by_event(event_id: int):
 
 @app.get("/stats/event-counts")
 def event_counts():
-    with get_connection() as conn:
+    with database_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
@@ -144,7 +132,7 @@ def event_counts():
 
 @app.get("/logs/search")
 def search_logs(term: str):
-    with get_connection() as conn:
+    with database_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
@@ -185,7 +173,7 @@ def search_logs(term: str):
 
 @app.get("/logs/source/{source_type}")
 def get_by_source(source_type: str):
-    with get_connection() as conn:
+    with database_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
@@ -224,7 +212,7 @@ def get_by_source(source_type: str):
 
 @app.get("/metrics/latest")
 def latest_metrics():
-    with get_connection() as conn:
+    with database_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
@@ -259,7 +247,7 @@ def latest_metrics():
 
 @app.get("/metrics")
 def get_metrics():
-    with get_connection() as conn:
+    with database_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
@@ -290,4 +278,3 @@ def get_metrics():
         }
         for row in rows
     ]
-

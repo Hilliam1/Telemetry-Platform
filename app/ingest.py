@@ -2,12 +2,19 @@ import json
 import logging
 import os
 import socket
+import sys
 import time
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
-from pathlib import Path
 
-import psycopg2
+if __package__ in (None, ""):
+    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from app.config import (
+    DEFAULT_SOURCES,
+    load_collector_settings,
+)
+from app.database import create_connection
 import pywintypes
 import win32evtlog
 
@@ -18,10 +25,6 @@ except ImportError:
 
 
 LOG = logging.getLogger("sysmon_collector")
-
-STATE_FILE = Path(os.getenv("COLLECTOR_STATE_FILE", "collector_state.json"))
-POLL_SECONDS = int(os.getenv("COLLECTOR_POLL_SECONDS", "5"))
-BATCH_SIZE = int(os.getenv("COLLECTOR_BATCH_SIZE", "100"))
 
 EVENT_CHANNELS = {
     "windows_system": ["System"],
@@ -36,16 +39,6 @@ EVENT_CHANNELS = {
     "task_scheduler": ["Microsoft-Windows-TaskScheduler/Operational"],
 }
 
-DEFAULT_SOURCES = [
-    "windows_system",
-    "windows_application",
-    "windows_security",
-    "sysmon",
-    "powershell",
-    "defender",
-    "task_scheduler",
-    "health_metrics",
-]
 
 LEVELS = {
     "0": "LogAlways",
@@ -60,14 +53,9 @@ LEVELS = {
 class Collector:
     def __init__(self):
         self.hostname = socket.gethostname()
+        self.settings = load_collector_settings()
         self.state = self._load_state()
-        self.conn = psycopg2.connect(
-            host=os.getenv("PGHOST", "localhost"),
-            database=os.getenv("PGDATABASE", "sysmon_lab"),
-            user=os.getenv("PGUSER", "postgres"),
-            password=os.getenv("PGPASSWORD", ""),
-            port=int(os.getenv("PGPORT", "5432")),
-        )
+        self.conn = create_connection()
 
     def close(self):
         self.conn.close()
@@ -126,8 +114,12 @@ class Collector:
     def run_forever(self):
         while True:
             total = self.run_once()
-            LOG.info("Polling complete. Inserted %s events. Sleeping %s seconds.", total, POLL_SECONDS)
-            time.sleep(POLL_SECONDS)
+            LOG.info(
+                "Polling complete. Inserted %s events. Sleeping %s seconds.",
+                total,
+                self.settings.poll_seconds,
+            )
+            time.sleep(self.settings.poll_seconds)
 
     def run_once(self):
         started_at = datetime.now(timezone.utc)
@@ -177,10 +169,10 @@ class Collector:
         return inserted
 
     def _enabled_sources(self):
-        sources = os.getenv("COLLECTOR_SOURCES")
-        if not sources:
+        if self.settings.enabled_sources is None:
             return DEFAULT_SOURCES
-        return [source.strip() for source in sources.split(",") if source.strip()]
+
+        return self.settings.enabled_sources
 
     def _ingest_channel(self, source_type, channel):
         state_key = f"{source_type}:{channel}"
@@ -193,9 +185,12 @@ class Collector:
         )
 
         events = []
-        while len(events) < BATCH_SIZE:
+        while len(events) < self.settings.batch_size:
             try:
-                batch = win32evtlog.EvtNext(handle, min(25, BATCH_SIZE - len(events)))
+                batch = win32evtlog.EvtNext(
+                    handle,
+                    min(25, self.settings.batch_size - len(events)),
+                )
             except pywintypes.error as exc:
                 if exc.winerror == 259:
                     break
@@ -407,16 +402,19 @@ class Collector:
         return metrics
 
     def _load_state(self):
-        if not STATE_FILE.exists():
+        if not self.settings.state_file.exists():
             return {}
         try:
-            return json.loads(STATE_FILE.read_text(encoding="utf-8"))
+            return json.loads(self.settings.state_file.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
             LOG.warning("State file is invalid JSON; starting with empty state.")
             return {}
 
     def _save_state(self):
-        STATE_FILE.write_text(json.dumps(self.state, indent=2, sort_keys=True), encoding="utf-8")
+        self.settings.state_file.write_text(
+            json.dumps(self.state, indent=2, sort_keys=True),
+            encoding="utf-8",
+        )
 
     def _node_text(self, parent, tag, ns, default=""):
         if parent is None:
@@ -471,4 +469,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
