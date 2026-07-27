@@ -15,6 +15,7 @@ from app.config import (
     load_collector_settings,
 )
 from app.database import create_connection
+from app.state import CollectorState
 import pywintypes
 import win32evtlog
 
@@ -54,7 +55,9 @@ class Collector:
     def __init__(self):
         self.hostname = socket.gethostname()
         self.settings = load_collector_settings()
-        self.state = self._load_state()
+        self.state = CollectorState(
+            self.settings.state_file
+        )
         self.conn = create_connection()
 
     def close(self):
@@ -175,8 +178,10 @@ class Collector:
         return self.settings.enabled_sources
 
     def _ingest_channel(self, source_type, channel):
-        state_key = f"{source_type}:{channel}"
-        last_record_id = int(self.state.get(state_key, 0))
+        last_record_id = self.state.get_last_record_id(
+            source_type,
+            channel,
+        )
         query = f"*[System[EventRecordID > {last_record_id}]]" if last_record_id else "*"
         handle = win32evtlog.EvtQuery(
             channel,
@@ -221,10 +226,14 @@ class Collector:
             )
             self._insert_process_event(event)
             inserted += 1
-            self.state[state_key] = max(int(self.state.get(state_key, 0)), event["record_id"])
+            self.state.update_record_id(
+                source_type,
+                channel,
+                event["record_id"],
+            )
 
         self.conn.commit()
-        self._save_state()
+        self.state.save()
         return inserted
 
     def _insert_process_event(self, event):
@@ -400,21 +409,6 @@ class Collector:
             }
         )
         return metrics
-
-    def _load_state(self):
-        if not self.settings.state_file.exists():
-            return {}
-        try:
-            return json.loads(self.settings.state_file.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            LOG.warning("State file is invalid JSON; starting with empty state.")
-            return {}
-
-    def _save_state(self):
-        self.settings.state_file.write_text(
-            json.dumps(self.state, indent=2, sort_keys=True),
-            encoding="utf-8",
-        )
 
     def _node_text(self, parent, tag, ns, default=""):
         if parent is None:

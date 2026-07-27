@@ -66,7 +66,8 @@ Telemetry-Platform/
 |   |-- api.py
 |   |-- config.py
 |   |-- database.py
-|   `-- ingest.py
+|   |-- ingest.py
+|   `-- state.py
 |-- sql/
 |   |-- 001_create_tables.sql
 |   |-- 002_create_indexes.sql

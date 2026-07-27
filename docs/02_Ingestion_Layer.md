@@ -21,6 +21,8 @@ Enabled sources are controlled by the `COLLECTOR_SOURCES` environment variable. 
 
 The collector tracks the latest processed `EventRecordID` per source and channel. This avoids repeatedly processing the same event logs.
 
+Checkpoint loading, validation, updates, and persistence are handled by `app/state.py`.
+
 ## Batch Processing
 
 The collector reads up to `COLLECTOR_BATCH_SIZE` events per channel per polling run.
@@ -28,4 +30,3 @@ The collector reads up to `COLLECTOR_BATCH_SIZE` events per channel per polling 
 ## Error Handling
 
 Database failures trigger a rollback. Windows access-denied errors are logged so restricted channels do not stop the whole collection cycle.
-
