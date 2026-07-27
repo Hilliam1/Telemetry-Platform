@@ -211,6 +211,7 @@ class Collector:
         parsed_events.sort(key=lambda item: item["record_id"])
 
         inserted = 0
+        highest_record_id = None
         for event in parsed_events:
             event["source_type"] = source_type
             self._insert_event(
@@ -226,14 +227,18 @@ class Collector:
             )
             self._insert_process_event(event)
             inserted += 1
+            highest_record_id = event["record_id"]
+
+        self.conn.commit()
+
+        if highest_record_id is not None:
             self.state.update_record_id(
                 source_type,
                 channel,
-                event["record_id"],
+                highest_record_id,
             )
+            self.state.save()
 
-        self.conn.commit()
-        self.state.save()
         return inserted
 
     def _insert_process_event(self, event):
