@@ -25,6 +25,14 @@ class FakeState:
         self.saved = True
 
 
+class FakeReader:
+    def __init__(self, event_xml_documents):
+        self.event_xml_documents = event_xml_documents
+
+    def read_channel(self, channel, last_record_id):
+        return self.event_xml_documents
+
+
 def test_state_does_not_advance_when_database_commit_fails(monkeypatch):
     collector = Collector.__new__(Collector)
     collector.hostname = "test-host"
@@ -55,21 +63,8 @@ def test_state_does_not_advance_when_database_commit_fails(monkeypatch):
         },
     ]
 
-    rendered_events = iter(parsed_events)
-    evt_next_calls = 0
+    collector.reader = FakeReader(parsed_events)
 
-    def fake_evt_next(handle, count):
-        nonlocal evt_next_calls
-        evt_next_calls += 1
-
-        if evt_next_calls == 1:
-            return ["event-1", "event-2"]
-
-        return []
-
-    monkeypatch.setattr("app.ingest.win32evtlog.EvtQuery", lambda *args: object())
-    monkeypatch.setattr("app.ingest.win32evtlog.EvtNext", fake_evt_next)
-    monkeypatch.setattr("app.ingest.win32evtlog.EvtRender", lambda *args: next(rendered_events))
     monkeypatch.setattr(collector, "_parse_event_xml", lambda event_xml: event_xml)
     monkeypatch.setattr(collector, "_insert_event", lambda **kwargs: None)
     monkeypatch.setattr(collector, "_insert_process_event", lambda event: None)

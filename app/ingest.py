@@ -16,8 +16,8 @@ from app.config import (
 )
 from app.database import create_connection
 from app.state import CollectorState
+from app.windows_reader import WindowsEventReader
 import pywintypes
-import win32evtlog
 
 try:
     import psutil
@@ -57,6 +57,9 @@ class Collector:
         self.settings = load_collector_settings()
         self.state = CollectorState(
             self.settings.state_file
+        )
+        self.reader = WindowsEventReader(
+            batch_size=self.settings.batch_size
         )
         self.conn = create_connection()
 
@@ -182,38 +185,27 @@ class Collector:
             source_type,
             channel,
         )
-        query = f"*[System[EventRecordID > {last_record_id}]]" if last_record_id else "*"
-        handle = win32evtlog.EvtQuery(
-            channel,
-            win32evtlog.EvtQueryChannelPath,
-            query,
+
+        event_xml_documents = self.reader.read_channel(
+            channel=channel,
+            last_record_id=last_record_id,
         )
 
-        events = []
-        while len(events) < self.settings.batch_size:
-            try:
-                batch = win32evtlog.EvtNext(
-                    handle,
-                    min(25, self.settings.batch_size - len(events)),
-                )
-            except pywintypes.error as exc:
-                if exc.winerror == 259:
-                    break
-                raise
-            if not batch:
-                break
-            events.extend(batch)
-
         parsed_events = [
-            self._parse_event_xml(win32evtlog.EvtRender(event, win32evtlog.EvtRenderEventXml))
-            for event in events
+            self._parse_event_xml(event_xml)
+            for event_xml in event_xml_documents
         ]
-        parsed_events.sort(key=lambda item: item["record_id"])
+
+        parsed_events.sort(
+            key=lambda item: item["record_id"]
+        )
 
         inserted = 0
         highest_record_id = None
+
         for event in parsed_events:
             event["source_type"] = source_type
+
             self._insert_event(
                 source_host=event["computer"] or self.hostname,
                 source_type=source_type,
@@ -223,9 +215,14 @@ class Collector:
                 severity=event["severity"],
                 time_created=event["time_created"],
                 message=event["message"],
-                raw_data=json.dumps(event["raw"], sort_keys=True),
+                raw_data=json.dumps(
+                    event["raw"],
+                    sort_keys=True,
+                ),
             )
+
             self._insert_process_event(event)
+
             inserted += 1
             highest_record_id = event["record_id"]
 
