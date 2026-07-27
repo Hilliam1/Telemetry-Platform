@@ -121,8 +121,10 @@ The reader now explicitly closes the Windows query handle:
 
 ```python
 finally:
-    win32evtlog.CloseEventLog(query_handle)
+    query_handle.Close()
 ```
+
+This pywin32 environment does not expose `win32evtlog.EvtClose`, and `win32evtlog.CloseEventLog()` is not safe for the modern `PyEVT_HANDLE` returned by `EvtQuery`. The returned handle exposes `Close()`, so the reader uses that handle-level close method directly.
 
 This matters because the collector is designed to run continuously.
 
@@ -194,7 +196,7 @@ These responsibilities moved into `app/windows_reader.py`:
 - `EvtQuery`
 - `EvtNext`
 - `EvtRender`
-- `CloseEventLog`
+- query handle `Close()`
 - XPath checkpoint query construction
 - native batch-size enforcement
 - Windows end-of-results handling
@@ -239,7 +241,7 @@ py -m compileall app tests
 Ownership check:
 
 ```powershell
-rg -n "win32evtlog|EvtQuery|EvtNext|EvtRender|CloseEventLog" app
+rg -n "win32evtlog|EvtQuery|EvtNext|EvtRender|Close" app
 ```
 
 Expected ownership:

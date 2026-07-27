@@ -60,7 +60,7 @@ class WindowsEventReader:
                 for event_handle in event_handles
             ]
         finally:
-            win32evtlog.CloseEventLog(query_handle)
+            query_handle.Close()
 
     def _read_handles(self, query_handle: Any) -> list[Any]:
         events: list[Any] = []
