@@ -33,6 +33,11 @@ class FakeReader:
         return self.event_xml_documents
 
 
+class FakeParser:
+    def parse(self, event_xml):
+        return event_xml
+
+
 def test_state_does_not_advance_when_database_commit_fails(monkeypatch):
     collector = Collector.__new__(Collector)
     collector.hostname = "test-host"
@@ -64,8 +69,8 @@ def test_state_does_not_advance_when_database_commit_fails(monkeypatch):
     ]
 
     collector.reader = FakeReader(parsed_events)
+    collector.parser = FakeParser()
 
-    monkeypatch.setattr(collector, "_parse_event_xml", lambda event_xml: event_xml)
     monkeypatch.setattr(collector, "_insert_event", lambda **kwargs: None)
     monkeypatch.setattr(collector, "_insert_process_event", lambda event: None)
 

@@ -1,14 +1,15 @@
 # Ingestion Layer
 
 The ingestion layer is coordinated by `app/ingest.py`, with Windows
-Event Log access implemented in `app/windows_reader.py`.
+Event Log access implemented in `app/windows_reader.py` and rendered
+Windows event parsing implemented in
+`app/parsers/windows_event_parser.py`.
 
 ## Responsibilities
 
 ### `app/ingest.py`
 
 - Coordinate enabled telemetry sources.
-- Parse rendered Windows event XML.
 - Insert normalized event records.
 - Extract Sysmon process creation events.
 - Collect host metrics when `psutil` is available.
@@ -21,6 +22,13 @@ Event Log access implemented in `app/windows_reader.py`.
 - Read event batches with `EvtNext`.
 - Render events as XML with `EvtRender`.
 - Manage query and event-handle lifecycles.
+
+### `app/parsers/windows_event_parser.py`
+
+- Parse rendered Windows event XML.
+- Normalize provider, event ID, record ID, severity, timestamp, and computer fields.
+- Convert `EventData` and `UserData` into dictionaries.
+- Build the normalized event message and raw event payload.
 
 ## Source Control
 

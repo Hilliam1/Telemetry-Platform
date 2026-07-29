@@ -4,7 +4,6 @@ import os
 import socket
 import sys
 import time
-import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 
 if __package__ in (None, ""):
@@ -17,6 +16,8 @@ from app.config import (
 from app.database import create_connection
 from app.state import CollectorState
 from app.windows_reader import WindowsEventReader
+from app.parsers.windows_event_parser import WindowsEventParser
+
 import pywintypes
 
 try:
@@ -40,17 +41,6 @@ EVENT_CHANNELS = {
     "task_scheduler": ["Microsoft-Windows-TaskScheduler/Operational"],
 }
 
-
-LEVELS = {
-    "0": "LogAlways",
-    "1": "Critical",
-    "2": "Error",
-    "3": "Warning",
-    "4": "Information",
-    "5": "Verbose",
-}
-
-
 class Collector:
     def __init__(self):
         self.hostname = socket.gethostname()
@@ -60,6 +50,9 @@ class Collector:
         )
         self.reader = WindowsEventReader(
             batch_size=self.settings.batch_size
+        )
+        self.parser = WindowsEventParser(
+            default_computer=self.hostname
         )
         self.conn = create_connection()
 
@@ -192,7 +185,7 @@ class Collector:
         )
 
         parsed_events = [
-            self._parse_event_xml(event_xml)
+            self.parser.parse(event_xml)
             for event_xml in event_xml_documents
         ]
 
@@ -355,42 +348,6 @@ class Collector:
                 ),
             )
 
-    def _parse_event_xml(self, event_xml):
-        root = ET.fromstring(event_xml)
-        ns = {"e": "http://schemas.microsoft.com/win/2004/08/events/event"}
-        system = root.find("e:System", ns)
-        event_data = root.find("e:EventData", ns)
-        user_data = root.find("e:UserData", ns)
-
-        provider = system.find("e:Provider", ns).attrib.get("Name", "") if system is not None else ""
-        event_id = self._node_text(system, "EventID", ns, "0")
-        record_id = self._node_text(system, "EventRecordID", ns, "0")
-        level = self._node_text(system, "Level", ns, "4")
-        computer = self._node_text(system, "Computer", ns, self.hostname)
-        time_node = system.find("e:TimeCreated", ns) if system is not None else None
-        created = time_node.attrib.get("SystemTime") if time_node is not None else None
-        data = self._event_data_to_dict(event_data, ns)
-        user = self._element_to_dict(user_data) if user_data is not None else {}
-
-        return {
-            "provider": provider,
-            "event_id": int(event_id),
-            "record_id": int(record_id),
-            "severity": LEVELS.get(level, level),
-            "time_created": self._parse_windows_time(created),
-            "computer": computer,
-            "message": self._build_message(data, user),
-            "raw": {
-                "provider": provider,
-                "event_id": int(event_id),
-                "record_id": int(record_id),
-                "level": level,
-                "computer": computer,
-                "event_data": data,
-                "user_data": user,
-            },
-        }
-
     def _collect_health_metrics(self):
         metrics = {
             "collector_time": datetime.now(timezone.utc).isoformat(),
@@ -411,44 +368,6 @@ class Collector:
             }
         )
         return metrics
-
-    def _node_text(self, parent, tag, ns, default=""):
-        if parent is None:
-            return default
-        node = parent.find(f"e:{tag}", ns)
-        return node.text if node is not None and node.text is not None else default
-
-    def _event_data_to_dict(self, event_data, ns):
-        if event_data is None:
-            return {}
-        values = {}
-        for index, node in enumerate(event_data.findall("e:Data", ns)):
-            name = node.attrib.get("Name", f"Data{index}")
-            values[name] = node.text or ""
-        return values
-
-    def _element_to_dict(self, element):
-        result = {}
-        for child in list(element):
-            tag = child.tag.split("}", 1)[-1]
-            if list(child):
-                result[tag] = self._element_to_dict(child)
-            else:
-                result[tag] = child.text or ""
-        return result
-
-    def _build_message(self, event_data, user_data):
-        data = event_data or user_data
-        if not data:
-            return ""
-        return " ".join(f"{key}={value}" for key, value in data.items())
-
-    def _parse_windows_time(self, value):
-        if not value:
-            return datetime.now(timezone.utc)
-        return datetime.fromisoformat(value.replace("Z", "+00:00"))
-
-
 def main():
     logging.basicConfig(
         level=os.getenv("LOG_LEVEL", "INFO"),
