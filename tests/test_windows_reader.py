@@ -81,17 +81,18 @@ def test_reads_and_renders_events(
 @patch("app.windows_reader.win32evtlog.EvtRender")
 @patch("app.windows_reader.win32evtlog.EvtNext")
 @patch("app.windows_reader.win32evtlog.EvtQuery")
-def test_event_and_query_handles_close_after_render_error(
+def test_all_event_and_query_handles_close_after_render_error(
     mock_query,
     mock_next,
     mock_render,
 ):
     query_handle = Mock()
-    event_handle = Mock()
+    event_one = Mock()
+    event_two = Mock()
 
     mock_query.return_value = query_handle
     mock_next.side_effect = [
-        [event_handle],
+        [event_one, event_two],
         [],
     ]
     mock_render.side_effect = RuntimeError("render failed")
@@ -99,6 +100,34 @@ def test_event_and_query_handles_close_after_render_error(
     reader = WindowsEventReader(batch_size=100)
 
     with pytest.raises(RuntimeError, match="render failed"):
+        reader.read_channel("System")
+
+    event_one.Close.assert_called_once_with()
+    event_two.Close.assert_called_once_with()
+    query_handle.Close.assert_called_once_with()
+
+
+@patch("app.windows_reader.win32evtlog.EvtNext")
+@patch("app.windows_reader.win32evtlog.EvtQuery")
+def test_collected_handles_close_after_later_read_error(
+    mock_query,
+    mock_next,
+):
+    query_handle = Mock()
+    event_handle = Mock()
+
+    mock_query.return_value = query_handle
+    mock_next.side_effect = [
+        [event_handle],
+        make_windows_error(5),
+    ]
+
+    reader = WindowsEventReader(
+        batch_size=100,
+        native_batch_size=1,
+    )
+
+    with pytest.raises(pywintypes.error):
         reader.read_channel("System")
 
     event_handle.Close.assert_called_once_with()

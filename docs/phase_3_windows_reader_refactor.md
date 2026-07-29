@@ -138,7 +138,9 @@ Using `try/finally` ensures handles are closed when:
 - `EvtNext` raises
 - `EvtRender` raises
 
-The reader closes event handles individually and then closes the parent query handle.
+The reader closes all collected event handles even if rendering stops partway through the list. It also closes event handles that were collected before a later `EvtNext` call raises an unexpected error.
+
+After event handle cleanup, the reader closes the parent query handle.
 
 ## Changes in `app/ingest.py`
 
@@ -219,7 +221,8 @@ These responsibilities moved into `app/windows_reader.py`:
 - query handle closure after successful reads
 - query handle closure after read errors
 - event handle closure after successful renders
-- event handle closure after render errors
+- all collected event handle closure after render errors
+- previously collected event handle closure after later read errors
 
 `tests/test_ingest_state.py` was also updated so it tests collector orchestration through the new reader boundary instead of patching `win32evtlog` inside `ingest.py`.
 
@@ -234,7 +237,7 @@ py -m pytest -v
 Expected result:
 
 ```text
-21 passed
+22 passed
 ```
 
 Compile check:

@@ -59,44 +59,50 @@ class WindowsEventReader:
     def _render_events(self, event_handles: list[Any]) -> list[str]:
         rendered_events: list[str] = []
 
-        for event_handle in event_handles:
-            try:
+        try:
+            for event_handle in event_handles:
                 rendered_events.append(
                     win32evtlog.EvtRender(
                         event_handle,
                         win32evtlog.EvtRenderEventXml,
                     )
                 )
-            finally:
-                event_handle.Close()
 
-        return rendered_events
+            return rendered_events
+        finally:
+            for event_handle in event_handles:
+                event_handle.Close()
 
     def _read_handles(self, query_handle: Any) -> list[Any]:
         events: list[Any] = []
 
-        while len(events) < self.batch_size:
-            requested = min(
-                self.native_batch_size,
-                self.batch_size - len(events),
-            )
-
-            try:
-                batch = win32evtlog.EvtNext(
-                    query_handle,
-                    requested,
+        try:
+            while len(events) < self.batch_size:
+                requested = min(
+                    self.native_batch_size,
+                    self.batch_size - len(events),
                 )
-            except pywintypes.error as exc:
-                if exc.winerror == ERROR_NO_MORE_ITEMS:
+
+                try:
+                    batch = win32evtlog.EvtNext(
+                        query_handle,
+                        requested,
+                    )
+                except pywintypes.error as exc:
+                    if exc.winerror == ERROR_NO_MORE_ITEMS:
+                        break
+                    raise
+
+                if not batch:
                     break
-                raise
 
-            if not batch:
-                break
+                events.extend(batch)
 
-            events.extend(batch)
-
-        return events
+            return events
+        except Exception:
+            for event_handle in events:
+                event_handle.Close()
+            raise
 
     @staticmethod
     def _build_query(last_record_id: int) -> str:
