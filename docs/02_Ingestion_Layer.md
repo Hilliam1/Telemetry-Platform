@@ -1,17 +1,26 @@
 # Ingestion Layer
 
-The ingestion layer is currently implemented in `app/ingest.py`.
+The ingestion layer is coordinated by `app/ingest.py`, with Windows
+Event Log access implemented in `app/windows_reader.py`.
 
 ## Responsibilities
 
-- Connect to PostgreSQL.
-- Read enabled event sources.
-- Query Windows Event Log channels.
-- Parse event XML.
+### `app/ingest.py`
+
+- Coordinate enabled telemetry sources.
+- Parse rendered Windows event XML.
 - Insert normalized event records.
 - Extract Sysmon process creation events.
 - Collect host metrics when `psutil` is available.
-- Save collector state after successful ingestion.
+- Commit successful ingestion before advancing collector state.
+
+### `app/windows_reader.py`
+
+- Build checkpoint-aware Windows Event Log queries.
+- Execute `EvtQuery`.
+- Read event batches with `EvtNext`.
+- Render events as XML with `EvtRender`.
+- Manage query and event-handle lifecycles.
 
 ## Source Control
 
