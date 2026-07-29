@@ -6,6 +6,8 @@ import sys
 import time
 from datetime import datetime, timezone
 
+import pywintypes
+
 if __package__ in (None, ""):
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -14,11 +16,9 @@ from app.config import (
     load_collector_settings,
 )
 from app.database import create_connection
+from app.parsers.windows_event_parser import WindowsEventParser
 from app.state import CollectorState
 from app.windows_reader import WindowsEventReader
-from app.parsers.windows_event_parser import WindowsEventParser
-
-import pywintypes
 
 try:
     import psutil
@@ -40,6 +40,7 @@ EVENT_CHANNELS = {
     "defender": ["Microsoft-Windows-Windows Defender/Operational"],
     "task_scheduler": ["Microsoft-Windows-TaskScheduler/Operational"],
 }
+
 
 class Collector:
     def __init__(self):
@@ -364,10 +365,15 @@ class Collector:
                 "cpu_percent": psutil.cpu_percent(interval=0.1),
                 "memory_percent": psutil.virtual_memory().percent,
                 "disk_percent": disk.percent,
-                "boot_time": datetime.fromtimestamp(psutil.boot_time(), timezone.utc).isoformat(),
+                "boot_time": datetime.fromtimestamp(
+                    psutil.boot_time(),
+                    timezone.utc,
+                ).isoformat(),
             }
         )
         return metrics
+
+
 def main():
     logging.basicConfig(
         level=os.getenv("LOG_LEVEL", "INFO"),
