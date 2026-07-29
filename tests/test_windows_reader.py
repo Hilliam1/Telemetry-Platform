@@ -73,6 +73,35 @@ def test_reads_and_renders_events(
         "<Event>one</Event>",
         "<Event>two</Event>",
     ]
+    event_one.Close.assert_called_once_with()
+    event_two.Close.assert_called_once_with()
+    query_handle.Close.assert_called_once_with()
+
+
+@patch("app.windows_reader.win32evtlog.EvtRender")
+@patch("app.windows_reader.win32evtlog.EvtNext")
+@patch("app.windows_reader.win32evtlog.EvtQuery")
+def test_event_and_query_handles_close_after_render_error(
+    mock_query,
+    mock_next,
+    mock_render,
+):
+    query_handle = Mock()
+    event_handle = Mock()
+
+    mock_query.return_value = query_handle
+    mock_next.side_effect = [
+        [event_handle],
+        [],
+    ]
+    mock_render.side_effect = RuntimeError("render failed")
+
+    reader = WindowsEventReader(batch_size=100)
+
+    with pytest.raises(RuntimeError, match="render failed"):
+        reader.read_channel("System")
+
+    event_handle.Close.assert_called_once_with()
     query_handle.Close.assert_called_once_with()
 
 

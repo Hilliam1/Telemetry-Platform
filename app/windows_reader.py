@@ -52,15 +52,25 @@ class WindowsEventReader:
         try:
             event_handles = self._read_handles(query_handle)
 
-            return [
-                win32evtlog.EvtRender(
-                    event_handle,
-                    win32evtlog.EvtRenderEventXml,
-                )
-                for event_handle in event_handles
-            ]
+            return self._render_events(event_handles)
         finally:
             query_handle.Close()
+
+    def _render_events(self, event_handles: list[Any]) -> list[str]:
+        rendered_events: list[str] = []
+
+        for event_handle in event_handles:
+            try:
+                rendered_events.append(
+                    win32evtlog.EvtRender(
+                        event_handle,
+                        win32evtlog.EvtRenderEventXml,
+                    )
+                )
+            finally:
+                event_handle.Close()
+
+        return rendered_events
 
     def _read_handles(self, query_handle: Any) -> list[Any]:
         events: list[Any] = []

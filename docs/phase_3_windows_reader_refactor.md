@@ -55,7 +55,7 @@ The reader owns:
 - handling Windows `ERROR_NO_MORE_ITEMS`
 - rendering event handles to XML strings
 - building checkpoint-aware XPath queries
-- closing native Windows query handles
+- closing native Windows query and event handles
 
 ## Reader Input and Output
 
@@ -117,26 +117,28 @@ Unexpected Windows errors are raised back to the collector. That preserves the e
 
 ## Native Handle Cleanup
 
-The reader now explicitly closes the Windows query handle:
+The reader now explicitly closes both Windows query handles and rendered event handles:
 
 ```python
 finally:
     query_handle.Close()
 ```
 
-This pywin32 environment does not expose `win32evtlog.EvtClose`, and `win32evtlog.CloseEventLog()` is not safe for the modern `PyEVT_HANDLE` returned by `EvtQuery`. The returned handle exposes `Close()`, so the reader uses that handle-level close method directly.
+The event-rendering loop also closes each event handle after rendering it. This matters because `EvtNext` returns individual event handles, and each handle has its own lifecycle.
+
+This pywin32 environment does not expose `win32evtlog.EvtClose`, and `win32evtlog.CloseEventLog()` is not safe for the modern `PyEVT_HANDLE` returned by `EvtQuery`. Runtime checks confirmed that both query handles and event handles expose `Close()`, so the reader uses that handle-level close method directly.
 
 This matters because the collector is designed to run continuously.
 
 Without explicit handle cleanup, a long-running collector could rely on garbage collection to release native Windows handles. That is risky for a service-style process.
 
-Using `try/finally` ensures the query handle is closed when:
+Using `try/finally` ensures handles are closed when:
 
 - reading succeeds
 - `EvtNext` raises
 - `EvtRender` raises
 
-Closing the parent query handle also closes child event handles owned by that query.
+The reader closes event handles individually and then closes the parent query handle.
 
 ## Changes in `app/ingest.py`
 
@@ -197,6 +199,7 @@ These responsibilities moved into `app/windows_reader.py`:
 - `EvtNext`
 - `EvtRender`
 - query handle `Close()`
+- event handle `Close()`
 - XPath checkpoint query construction
 - native batch-size enforcement
 - Windows end-of-results handling
@@ -215,6 +218,8 @@ These responsibilities moved into `app/windows_reader.py`:
 - collector batch limit enforcement
 - query handle closure after successful reads
 - query handle closure after read errors
+- event handle closure after successful renders
+- event handle closure after render errors
 
 `tests/test_ingest_state.py` was also updated so it tests collector orchestration through the new reader boundary instead of patching `win32evtlog` inside `ingest.py`.
 
@@ -229,7 +234,7 @@ py -m pytest -v
 Expected result:
 
 ```text
-20 passed
+21 passed
 ```
 
 Compile check:
