@@ -19,12 +19,7 @@ from app.database import create_connection
 from app.parsers.windows_event_parser import WindowsEventParser
 from app.state import CollectorState
 from app.windows_reader import WindowsEventReader
-
-try:
-    import psutil
-except ImportError:
-    psutil = None
-
+from app.health_metrics import HostMetricsCollector
 
 LOG = logging.getLogger("sysmon_collector")
 
@@ -55,6 +50,9 @@ class Collector:
         self.parser = WindowsEventParser(
             default_computer=self.hostname
         )
+        self.metrics_collector = HostMetricsCollector(
+            hostname=self.hostname
+        )
         self.conn = create_connection()
 
     def close(self):
@@ -82,7 +80,7 @@ class Collector:
         return self._ingest_event_channels("task_scheduler")
 
     def ingest_health_metrics(self):
-        metrics = self._collect_health_metrics()
+        metrics = self.metrics_collector.collect()
 
         if not metrics.get("psutil_available"):
             return 0
@@ -348,31 +346,6 @@ class Collector:
                     raw_data,
                 ),
             )
-
-    def _collect_health_metrics(self):
-        metrics = {
-            "collector_time": datetime.now(timezone.utc).isoformat(),
-            "host": self.hostname,
-        }
-        if psutil is None:
-            metrics["psutil_available"] = False
-            return metrics
-
-        disk = psutil.disk_usage(os.getenv("SYSTEMDRIVE", "C:") + "\\")
-        metrics.update(
-            {
-                "psutil_available": True,
-                "cpu_percent": psutil.cpu_percent(interval=0.1),
-                "memory_percent": psutil.virtual_memory().percent,
-                "disk_percent": disk.percent,
-                "boot_time": datetime.fromtimestamp(
-                    psutil.boot_time(),
-                    timezone.utc,
-                ).isoformat(),
-            }
-        )
-        return metrics
-
 
 def main():
     logging.basicConfig(
