@@ -16,10 +16,10 @@ from app.config import (
     load_collector_settings,
 )
 from app.database import create_connection
+from app.health_metrics import HostMetricsCollector
 from app.parsers.windows_event_parser import WindowsEventParser
 from app.state import CollectorState
 from app.windows_reader import WindowsEventReader
-from app.health_metrics import HostMetricsCollector
 
 LOG = logging.getLogger("sysmon_collector")
 
@@ -346,6 +346,7 @@ class Collector:
                     raw_data,
                 ),
             )
+
 
 def main():
     logging.basicConfig(

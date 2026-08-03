@@ -66,8 +66,13 @@ Telemetry-Platform/
 |   |-- api.py
 |   |-- config.py
 |   |-- database.py
+|   |-- health_metrics.py
 |   |-- ingest.py
-|   `-- state.py
+|   |-- state.py
+|   |-- windows_reader.py
+|   `-- parsers/
+|       |-- __init__.py
+|       `-- windows_event_parser.py
 |-- sql/
 |   |-- 001_create_tables.sql
 |   |-- 002_create_indexes.sql
