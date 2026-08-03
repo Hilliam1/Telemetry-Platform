@@ -65,8 +65,9 @@ WindowsEventReader
 
 When `health_metrics` is enabled, `app/ingest.py` requests a snapshot
 from `HostMetricsCollector`. The collector returns normalized CPU,
-memory, disk, and boot-time values, which the ingestion orchestrator
-writes to the `host_metrics` table.
+memory, disk, and boot-time values. The ingestion orchestrator passes
+that snapshot to `TelemetryRepository`, which inserts it into the
+`host_metrics` table using the orchestrator-controlled transaction.
 
 ## Source Control
 

@@ -68,6 +68,7 @@ Telemetry-Platform/
 |   |-- database.py
 |   |-- health_metrics.py
 |   |-- ingest.py
+|   |-- repository.py
 |   |-- state.py
 |   |-- windows_reader.py
 |   `-- parsers/
