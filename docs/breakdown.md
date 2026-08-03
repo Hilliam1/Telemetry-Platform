@@ -4,57 +4,71 @@ This document explains `app/ingest.py` for someone who is still learning Python 
 
 ## Big Picture
 
-`ingest.py` is a Windows telemetry collector.
+`ingest.py` is the Windows telemetry collector orchestrator.
+
+That means it coordinates the work, but several specialized modules now own
+the details:
+
+- `app/config.py` reads environment variables.
+- `app/database.py` creates PostgreSQL connections.
+- `app/windows_reader.py` reads Windows Event Log XML.
+- `app/parsers/windows_event_parser.py` parses and normalizes Windows event XML.
+- `app/health_metrics.py` collects CPU, memory, disk, and boot-time metrics.
+- `app/state.py` saves collector checkpoints.
 
 Its job is to:
 
 1. Connect to a PostgreSQL database.
-2. Read Windows event logs from several Windows channels.
-3. Convert each event from XML into Python data.
+2. Ask the Windows reader to read event logs from several Windows channels.
+3. Ask the Windows parser to convert each event from XML into Python data.
 4. Insert the event into database tables.
 5. Track the last event it processed so it does not repeat old work.
-6. Optionally collect host health metrics like CPU, memory, disk, and boot time.
+6. Ask the host metrics collector for CPU, memory, disk, and boot-time data.
 7. Run continuously in a loop.
 
 The pipeline looks like this:
 
 ```text
 Windows Event Logs -> XML -> Python dictionary -> PostgreSQL tables
+Host metrics -> Python dictionary -> PostgreSQL table
 ```
 
 ## Imports
 
 The file starts by importing tools it needs.
 
-Standard Python imports:
+Standard Python imports in `ingest.py`:
 
 - `json` reads and writes JSON data.
 - `logging` writes status and error messages.
 - `os` reads environment variables.
 - `socket` gets the computer hostname.
+- `sys` supports running the file directly during local development.
 - `time` sleeps between polling cycles.
-- `xml.etree.ElementTree` parses XML.
 - `datetime` handles timestamps.
-- `Path` works with file paths.
 
 Third-party and Windows-specific imports:
 
-- `psycopg2` connects to PostgreSQL.
 - `pywintypes` handles Windows API errors.
-- `win32evtlog` reads Windows Event Logs.
-- `psutil` collects host health metrics if installed.
+
+Application imports:
+
+- `load_collector_settings()` reads collector settings from `app/config.py`.
+- `create_connection()` creates a PostgreSQL connection through `app/database.py`.
+- `CollectorState` loads and saves checkpoint state through `app/state.py`.
+- `WindowsEventReader` reads rendered XML from Windows Event Logs.
+- `WindowsEventParser` converts rendered XML into normalized event dictionaries.
+- `HostMetricsCollector` collects host health metrics if `psutil` is available.
 
 ## Configuration
 
-These lines read settings from environment variables:
+Collector settings are now read by `app/config.py`.
 
 ```python
-STATE_FILE = Path(os.getenv("COLLECTOR_STATE_FILE", "collector_state.json"))
-POLL_SECONDS = int(os.getenv("COLLECTOR_POLL_SECONDS", "5"))
-BATCH_SIZE = int(os.getenv("COLLECTOR_BATCH_SIZE", "100"))
+settings = load_collector_settings()
 ```
 
-If the environment variable is missing, Python uses the default value.
+That keeps environment-variable parsing out of `ingest.py`.
 
 For example, if `COLLECTOR_POLL_SECONDS` is missing, the collector waits 5 seconds between runs.
 
@@ -89,7 +103,9 @@ The default list includes:
 
 Windows stores event levels as numbers.
 
-`LEVELS` converts those numbers into readable names.
+`LEVELS` now lives in `app/parsers/windows_event_parser.py`.
+
+The parser converts those numbers into readable names.
 
 Example:
 
@@ -113,11 +129,15 @@ def __init__(self):
 
 This method runs when a new `Collector` object is created.
 
-It does three main things:
+It creates the main objects the collector needs:
 
 1. Gets the hostname.
-2. Loads collector state.
-3. Connects to PostgreSQL.
+2. Loads collector settings.
+3. Creates the checkpoint state manager.
+4. Creates the Windows Event Log reader.
+5. Creates the Windows event parser.
+6. Creates the host metrics collector.
+7. Connects to PostgreSQL.
 
 The database connection uses environment variables such as `PGHOST`, `PGDATABASE`, `PGUSER`, `PGPASSWORD`, and `PGPORT`.
 
@@ -155,9 +175,15 @@ For example:
 def ingest_health_metrics(self):
 ```
 
-This collects system health data.
+This asks `HostMetricsCollector` for a system health snapshot.
 
-If `psutil` is installed, it records:
+`ingest.py` does not calculate the health values itself anymore. It only:
+
+1. Requests metrics from `app/health_metrics.py`.
+2. Skips the insert if `psutil` is unavailable.
+3. Inserts the metrics into the `host_metrics` table when they are available.
+
+If `psutil` is installed, the snapshot contains:
 
 - CPU usage
 - memory usage
@@ -249,14 +275,14 @@ This is the core event ingestion method.
 
 It:
 
-1. Builds a state key for the source and channel.
-2. Finds the last processed `EventRecordID`.
-3. Queries only newer events.
-4. Reads a batch of events.
-5. Converts each event from XML to Python data.
-6. Inserts the event into the database.
-7. Inserts process details if the event is Sysmon Event ID 1.
-8. Updates the state file.
+1. Asks `CollectorState` for the last processed `EventRecordID`.
+2. Asks `WindowsEventReader` to read only newer events.
+3. Asks `WindowsEventParser` to convert each event from XML to Python data.
+4. Sorts events by record ID.
+5. Inserts each event into the database.
+6. Inserts process details if the event is Sysmon Event ID 1.
+7. Commits the database transaction.
+8. Updates the state file only after the commit succeeds.
 
 The state key looks like this:
 
@@ -341,15 +367,18 @@ It records:
 
 This helps you monitor whether the collector is healthy.
 
-## `_parse_event_xml`
+## Windows Event Parsing
 
 ```python
-def _parse_event_xml(self, event_xml):
+event = self.parser.parse(event_xml)
 ```
 
 Windows events are XML documents.
 
-This method turns an XML event into a Python dictionary.
+`ingest.py` no longer parses XML directly. XML parsing now belongs to
+`app/parsers/windows_event_parser.py`.
+
+The parser turns an XML event into a Python dictionary.
 
 It extracts:
 
@@ -364,31 +393,33 @@ It extracts:
 
 The returned dictionary is easier for Python and SQL to work with.
 
-## `_collect_health_metrics`
+## Host Metrics Collection
 
 ```python
-def _collect_health_metrics(self):
+metrics = self.metrics_collector.collect()
 ```
 
-This collects local machine health information using `psutil`.
+`ingest.py` no longer imports `psutil` or calculates CPU, memory, disk, or boot-time values.
+
+That work now belongs to `app/health_metrics.py`.
 
 If `psutil` is missing, it returns a dictionary that says metrics are unavailable.
 
 If `psutil` is available, it collects CPU, memory, disk, and boot time.
 
-## State File Functions
+## State Management
 
 ```python
-def _load_state(self):
+last_record_id = self.state.get_last_record_id(source_type, channel)
 ```
 
-This reads the collector state file.
+State management now belongs to `app/state.py`.
 
 ```python
-def _save_state(self):
+self.state.save()
 ```
 
-This writes the current state to disk.
+The state manager reads and writes the collector state file.
 
 The state file prevents duplicate ingestion.
 
@@ -400,37 +431,26 @@ Example state:
 }
 ```
 
-## XML Helper Functions
+## Windows Event Reader
 
 ```python
-def _node_text(...)
+event_xml_documents = self.reader.read_channel(
+    channel=channel,
+    last_record_id=last_record_id,
+)
 ```
 
-Safely gets text from an XML node.
+`ingest.py` no longer calls `win32evtlog` directly.
 
-```python
-def _event_data_to_dict(...)
-```
+Windows Event Log access now belongs to `app/windows_reader.py`.
 
-Converts XML event data into a Python dictionary.
+The reader:
 
-```python
-def _element_to_dict(...)
-```
-
-Converts nested XML into a dictionary.
-
-```python
-def _build_message(...)
-```
-
-Builds a readable message from event fields.
-
-```python
-def _parse_windows_time(...)
-```
-
-Converts a Windows timestamp into a Python `datetime`.
+- builds checkpoint-aware Windows Event Log queries
+- calls `EvtQuery`
+- reads batches with `EvtNext`
+- renders events as XML with `EvtRender`
+- closes Windows query and event handles
 
 ## `main`
 
@@ -463,18 +483,27 @@ mean: only run `main()` when this file is executed directly.
 Start program
 Configure logging
 Create Collector
-Connect to PostgreSQL
 Load collector state
+Create Windows reader
+Create Windows event parser
+Create host metrics collector
+Connect to PostgreSQL
 
 Forever:
     Get enabled sources
     For each source:
-        Find Windows Event Log channels
-        Read new events
-        Parse XML
-        Insert raw/normalized event
-        Extract process event if applicable
-        Update state
+        If it is a Windows event source:
+            Find Windows Event Log channels
+            Read new rendered XML events
+            Parse XML into normalized event data
+            Insert raw/normalized event
+            Extract process event if applicable
+            Commit database changes
+            Update state
+
+        If it is health_metrics:
+            Collect host metrics
+            Insert host metric row
 
     Insert collector run result
     Sleep
@@ -499,4 +528,3 @@ This file demonstrates:
 - long-running services
 
 The main thing to remember is that `ingest.py` is a pipeline: it moves telemetry from Windows Event Logs into PostgreSQL in a structured and repeatable way.
-
