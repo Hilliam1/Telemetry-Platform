@@ -1,12 +1,9 @@
-import json
 import logging
 import os
 import socket
 import sys
 import time
 from datetime import datetime, timezone
-
-import pywintypes
 
 if __package__ in (None, ""):
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -19,6 +16,11 @@ from app.database import create_connection
 from app.health_metrics import HostMetricsCollector
 from app.parsers.windows_event_parser import WindowsEventParser
 from app.repository import TelemetryRepository
+from app.source_handlers import (
+    HostMetricsSourceHandler,
+    SourceHandler,
+    WindowsEventSourceHandler,
+)
 from app.sources import (
     SourceKind,
     TelemetrySource,
@@ -40,20 +42,48 @@ class Collector:
         self.metrics_collector = HostMetricsCollector(hostname=self.hostname)
         self.conn = create_connection()
         self.repository = TelemetryRepository(self.conn)
+        self.source_handlers: dict[SourceKind, SourceHandler] = {
+            SourceKind.WINDOWS_EVENT: WindowsEventSourceHandler(
+                conn=self.conn,
+                repository=self.repository,
+                reader=self.reader,
+                parser=self.parser,
+                state=self.state,
+                hostname=self.hostname,
+            ),
+            SourceKind.HOST_METRICS: HostMetricsSourceHandler(
+                conn=self.conn,
+                repository=self.repository,
+                metrics_collector=self.metrics_collector,
+            ),
+        }
+
+    def _enabled_sources(
+        self,
+    ) -> tuple[TelemetrySource, ...]:
+        source_names = (
+            DEFAULT_SOURCES
+            if self.settings.enabled_sources is None
+            else self.settings.enabled_sources
+        )
+
+        return get_sources(source_names)
+
+    def _ingest_source(
+        self,
+        source: TelemetrySource,
+    ) -> int:
+        try:
+            handler = self.source_handlers[source.kind]
+        except KeyError as exc:
+            raise ValueError(
+                f"No handler registered for source kind {source.kind!r}"
+            ) from exc
+
+        return handler.ingest(source)
 
     def close(self):
         self.conn.close()
-
-    def ingest_health_metrics(self):
-        metrics = self.metrics_collector.collect()
-
-        if not metrics.get("psutil_available"):
-            return 0
-
-        self.repository.insert_host_metrics(metrics)
-        self.conn.commit()
-
-        return 1
 
     def run_forever(self):
         while True:
@@ -91,111 +121,6 @@ class Collector:
 
         self.conn.commit()
         return total
-
-    def _ingest_source(
-        self,
-        source: TelemetrySource,
-    ) -> int:
-        if source.kind is SourceKind.WINDOWS_EVENT:
-            return self._ingest_event_source(source)
-
-        if source.kind is SourceKind.HOST_METRICS:
-            return self.ingest_health_metrics()
-
-        raise ValueError(f"Unsupported source kind: {source.kind!r}")
-
-    def _ingest_event_source(
-        self,
-        source: TelemetrySource,
-    ) -> int:
-        inserted = 0
-        for channel in source.channels:
-            try:
-                inserted += self._ingest_channel(
-                    source.name,
-                    channel,
-                )
-            except pywintypes.error as exc:
-                self.conn.rollback()
-                if exc.winerror == 5:
-                    LOG.warning(
-                        "Access denied reading %s. Run elevated, add the collector account "
-                        "to Event Log Readers, or remove %s from COLLECTOR_SOURCES.",
-                        channel,
-                        source.name,
-                    )
-                    continue
-                LOG.exception("Failed to ingest channel %s", channel)
-            except Exception:
-                self.conn.rollback()
-                LOG.exception("Failed to ingest channel %s", channel)
-        return inserted
-
-    def _enabled_sources(
-        self,
-    ) -> tuple[TelemetrySource, ...]:
-        source_names = (
-            DEFAULT_SOURCES
-            if self.settings.enabled_sources is None
-            else self.settings.enabled_sources
-        )
-
-        return get_sources(source_names)
-
-    def _ingest_channel(self, source_type, channel):
-        last_record_id = self.state.get_last_record_id(
-            source_type,
-            channel,
-        )
-
-        event_xml_documents = self.reader.read_channel(
-            channel=channel,
-            last_record_id=last_record_id,
-        )
-
-        parsed_events = [
-            self.parser.parse(event_xml) for event_xml in event_xml_documents
-        ]
-
-        parsed_events.sort(key=lambda item: item["record_id"])
-
-        inserted = 0
-        highest_record_id = None
-
-        for event in parsed_events:
-            event["source_type"] = source_type
-
-            self.repository.insert_log_event(
-                source_host=event["computer"] or self.hostname,
-                source_type=source_type,
-                provider_name=event["provider"],
-                event_id=event["event_id"],
-                event_record_id=event["record_id"],
-                severity=event["severity"],
-                time_created=event["time_created"],
-                message=event["message"],
-                raw_data=json.dumps(
-                    event["raw"],
-                    sort_keys=True,
-                ),
-            )
-
-            self.repository.insert_process_event(event)
-
-            inserted += 1
-            highest_record_id = event["record_id"]
-
-        self.conn.commit()
-
-        if highest_record_id is not None:
-            self.state.update_record_id(
-                source_type,
-                channel,
-                highest_record_id,
-            )
-            self.state.save()
-
-        return inserted
 
 
 def main():

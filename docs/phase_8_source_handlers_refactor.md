@@ -1,23 +1,23 @@
 # Phase 8 Source Handlers Refactor
 
-Phase 8 is the next planned refactor after the source registry work from
-Phase 7. Phase 7 gave the collector explicit source definitions. Phase 8
-should move the source-specific execution logic out of `app/ingest.py` and
-into dedicated source handlers.
+Phase 8 is the refactor after the source registry work from Phase 7. Phase 7
+gave the collector explicit source definitions. Phase 8 moves the
+source-specific execution logic out of `app/ingest.py` and into dedicated
+source handlers.
 
 This is the first phase where polymorphism becomes a practical design tool in
 the collector.
 
-## Current Problem
+## Original Problem
 
-After Phase 7, `app/ingest.py` no longer uses dynamic `getattr()` calls to
+After Phase 7, `app/ingest.py` no longer used dynamic `getattr()` calls to
 choose collector methods. It resolves configured source names through
 `app/sources.py` and dispatches by `SourceKind`.
 
-That is a major improvement, but `Collector` still knows too much about how
+That was a major improvement, but `Collector` still knew too much about how
 each source works.
 
-Today, `Collector` still owns or coordinates details such as:
+Before Phase 8, `Collector` still owned or coordinated details such as:
 
 - Windows Event Log channel loops.
 - Windows access-denied handling.
@@ -26,34 +26,34 @@ Today, `Collector` still owns or coordinates details such as:
 - Checkpoint updates after Windows event commits.
 - Host-health metric collection and insertion.
 
-Those details are source-specific. They should live behind a shared handler
+Those details are source-specific. They now live behind a shared handler
 interface so the collector can stay focused on orchestration.
 
 ## Goal
 
-After Phase 8, `Collector` should:
+After Phase 8, `Collector`:
 
-1. Load enabled source definitions.
-2. Find the handler registered for each source kind.
-3. Call `handler.ingest(source)`.
-4. Record the overall collector run.
-5. Control the polling loop.
+1. Loads enabled source definitions.
+2. Finds the handler registered for each source kind.
+3. Calls `handler.ingest(source)`.
+4. Records the overall collector run.
+5. Controls the polling loop.
 
-It should not know the internal process for Windows event ingestion or host
+It does not know the internal process for Windows event ingestion or host
 metrics ingestion.
 
-## Planned Module
+## Added Module
 
-Phase 8 should add:
+Phase 8 adds:
 
 ```text
 app/source_handlers.py
 ```
 
-That module should define a common handler interface and concrete handlers for
+That module defines a common handler interface and concrete handlers for
 the current source categories.
 
-Planned structure:
+Implemented structure:
 
 ```text
 SourceHandler
@@ -63,7 +63,7 @@ SourceHandler
 
 ## `SourceHandler`
 
-`SourceHandler` should be an abstract base class. It defines the behavior every
+`SourceHandler` is an abstract base class. It defines the behavior every
 source handler must provide.
 
 Expected interface:
@@ -91,8 +91,8 @@ Logs, collects host metrics, or eventually reads another telemetry source.
 
 ## `WindowsEventSourceHandler`
 
-`WindowsEventSourceHandler` should own the Windows Event Log workflow currently
-inside the collector.
+`WindowsEventSourceHandler` owns the Windows Event Log workflow that previously
+lived inside the collector.
 
 Responsibilities:
 
@@ -124,8 +124,8 @@ not committed to the database.
 
 ## `HostMetricsSourceHandler`
 
-`HostMetricsSourceHandler` should own the host-health workflow currently inside
-the collector.
+`HostMetricsSourceHandler` owns the host-health workflow that previously lived
+inside the collector.
 
 Responsibilities:
 
@@ -140,7 +140,7 @@ the same interface.
 
 ## Collector After Phase 8
 
-The collector should build a handler registry during initialization.
+The collector builds a handler registry during initialization.
 
 Expected shape:
 
@@ -168,7 +168,7 @@ def _ingest_source(self, source: TelemetrySource) -> int:
 This means `Collector` no longer switches directly on `SourceKind`. The source
 kind is used only as a registry key.
 
-## Planned Flow
+## Implemented Flow
 
 ```text
 Configuration
@@ -228,7 +228,7 @@ The collector can stay stable while source-specific code grows around it.
 
 Polymorphism means different objects can be used through the same interface.
 
-In this project, both a Windows event handler and a host metrics handler should
+In this project, both a Windows event handler and a host metrics handler
 support:
 
 ```python
@@ -250,7 +250,7 @@ The handler owns the source-specific work.
 
 ## Testing Focus
 
-Phase 8 tests should cover:
+Phase 8 tests cover:
 
 - `HostMetricsSourceHandler.kind`.
 - `HostMetricsSourceHandler` inserts metrics when `psutil` data is available.
@@ -262,12 +262,12 @@ Phase 8 tests should cover:
 - Collector dispatch to the registered handler.
 - Collector failure when no handler is registered for a source kind.
 
-The tests should verify behavior without requiring live Windows Event Log or
+The tests verify behavior without requiring live Windows Event Log or
 PostgreSQL access.
 
 ## Acceptance Criteria
 
-Phase 8 is complete when:
+Phase 8 is complete because:
 
 - `SourceHandler` defines the common handler interface.
 - Windows and health sources use separate concrete handlers.

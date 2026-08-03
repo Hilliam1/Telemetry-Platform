@@ -27,13 +27,16 @@ Windows Event Logs
 Source Registry
         |
         v
+Collector Orchestration
+        |
+        v
+Source Handler Registry
+        |
+        v
 Windows Event Reader
         |
         v
 Parsing and Normalization
-        |
-        v
-Collector Orchestration
         |
         v
 Persistence Repository
@@ -51,7 +54,7 @@ Host health metrics follow a parallel path:
 HostMetricsCollector
         |
         v
-Collector Orchestration
+Source Handler Registry
         |
         v
 Persistence Repository
@@ -93,6 +96,7 @@ Telemetry-Platform/
 |   |-- health_metrics.py
 |   |-- ingest.py
 |   |-- repository.py
+|   |-- source_handlers.py
 |   |-- sources.py
 |   |-- state.py
 |   |-- windows_reader.py

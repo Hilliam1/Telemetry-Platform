@@ -1,13 +1,16 @@
-from types import SimpleNamespace
-
-import pytest
-
-from app.ingest import Collector
+from app.source_handlers import WindowsEventSourceHandler
+from app.sources import SourceKind, TelemetrySource
 
 
 class FakeConnection:
+    def __init__(self):
+        self.rolled_back = False
+
     def commit(self):
         raise RuntimeError("commit failed")
+
+    def rollback(self):
+        self.rolled_back = True
 
 
 class FakeState:
@@ -52,12 +55,6 @@ class FakeRepository:
 
 
 def test_state_does_not_advance_when_database_commit_fails():
-    collector = Collector.__new__(Collector)
-    collector.hostname = "test-host"
-    collector.settings = SimpleNamespace(batch_size=10)
-    collector.conn = FakeConnection()
-    collector.state = FakeState()
-
     parsed_events = [
         {
             "computer": "test-host",
@@ -81,12 +78,24 @@ def test_state_does_not_advance_when_database_commit_fails():
         },
     ]
 
-    collector.reader = FakeReader(parsed_events)
-    collector.parser = FakeParser()
-    collector.repository = FakeRepository()
+    state = FakeState()
+    conn = FakeConnection()
+    handler = WindowsEventSourceHandler(
+        conn=conn,
+        repository=FakeRepository(),
+        reader=FakeReader(parsed_events),
+        parser=FakeParser(),
+        state=state,
+        hostname="test-host",
+    )
 
-    with pytest.raises(RuntimeError, match="commit failed"):
-        collector._ingest_channel("sysmon", "channel")
+    source = TelemetrySource(
+        name="sysmon",
+        kind=SourceKind.WINDOWS_EVENT,
+        channels=("channel",),
+    )
 
-    assert collector.state.updated == []
-    assert collector.state.saved is False
+    assert handler.ingest(source) == 0
+    assert conn.rolled_back is True
+    assert state.updated == []
+    assert state.saved is False

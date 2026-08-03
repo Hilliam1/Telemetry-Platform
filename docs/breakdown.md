@@ -40,7 +40,6 @@ The file starts by importing tools it needs.
 
 Standard Python imports in `ingest.py`:
 
-- `json` reads and writes JSON data.
 - `logging` writes status and error messages.
 - `os` reads environment variables.
 - `socket` gets the computer hostname.
@@ -50,7 +49,7 @@ Standard Python imports in `ingest.py`:
 
 Third-party and Windows-specific imports:
 
-- `pywintypes` handles Windows API errors.
+- `pywintypes` is no longer imported by `ingest.py`. Windows API errors are handled in `app/source_handlers.py`.
 
 Application imports:
 
@@ -60,6 +59,8 @@ Application imports:
 - `WindowsEventReader` reads rendered XML from Windows Event Logs.
 - `WindowsEventParser` converts rendered XML into normalized event dictionaries.
 - `HostMetricsCollector` collects host health metrics if `psutil` is available.
+- `WindowsEventSourceHandler` runs the Windows event source workflow.
+- `HostMetricsSourceHandler` runs the host metrics source workflow.
 - `get_sources()` resolves configured source names into explicit source definitions.
 
 ## Configuration
@@ -156,6 +157,7 @@ It creates the main objects the collector needs:
 5. Creates the Windows event parser.
 6. Creates the host metrics collector.
 7. Connects to PostgreSQL.
+8. Creates a handler registry for Windows event sources and host metrics sources.
 
 The database connection uses environment variables such as `PGHOST`, `PGDATABASE`, `PGUSER`, `PGPASSWORD`, and `PGPORT`.
 
@@ -177,33 +179,28 @@ Older versions used separate methods such as `ingest_sysmon()` and
 
 The current collector no longer needs one method per source name. Instead,
 `app/sources.py` turns configured source names into `TelemetrySource` objects.
-Then `ingest.py` checks each source kind and sends it to the correct workflow.
+Then `ingest.py` uses each source kind to find the correct source handler.
 
 For example, a Windows source uses the Windows Event Log workflow, while the
 `health_metrics` source uses the host-health workflow.
 
-## Health Metrics
+## Source Handlers
+
+Source handlers live in `app/source_handlers.py`.
+
+They let different source types share the same calling pattern:
 
 ```python
-def ingest_health_metrics(self):
+handler.ingest(source)
 ```
 
-This asks `HostMetricsCollector` for a system health snapshot.
+The collector does not need to know the internal steps for every source. It
+only needs to find the correct handler and call `ingest()`.
 
-`ingest.py` does not calculate the health values itself anymore. It only:
+The current handlers are:
 
-1. Requests metrics from `app/health_metrics.py`.
-2. Skips the insert if `psutil` is unavailable.
-3. Inserts the metrics into the `host_metrics` table when they are available.
-
-If `psutil` is installed, the snapshot contains:
-
-- CPU usage
-- memory usage
-- disk usage
-- boot time
-
-If `psutil` is not installed, the method returns `0` and skips metrics.
+- `WindowsEventSourceHandler`
+- `HostMetricsSourceHandler`
 
 ## `run_forever`
 
@@ -270,78 +267,30 @@ If a source name is wrong, the registry raises a readable error instead of letti
 def _ingest_source(self, source):
 ```
 
-This method explicitly dispatches each source by source kind.
-
-If the source kind is:
+This method uses the source kind as a dictionary key:
 
 ```python
-SourceKind.WINDOWS_EVENT
+handler = self.source_handlers[source.kind]
+return handler.ingest(source)
 ```
 
-the collector runs the Windows Event Log workflow.
+This is polymorphic dispatch. Both handlers support `ingest(source)`, even
+though they do different work internally.
 
-If the source kind is:
+## `WindowsEventSourceHandler.ingest`
 
 ```python
-SourceKind.HOST_METRICS
+def ingest(self, source):
 ```
 
-the collector runs the host-health workflow.
-
-This replaced the older dynamic pattern:
-
-```python
-getattr(self, f"ingest_{source}")()
-```
-
-The new registry is easier to validate and safer to expand.
-
-## Upcoming Phase 8: Source Handlers
-
-Phase 8 will make the source registry even more useful by adding source
-handlers.
-
-Right now, `ingest.py` can resolve a source definition, but it still contains
-the details for Windows event ingestion and host metrics ingestion.
-
-Phase 8 should introduce a common handler interface:
-
-```python
-handler.ingest(source)
-```
-
-That means the collector can do the same thing for every source:
-
-```text
-look up the source
-find the handler
-ask the handler to ingest it
-add the number of inserted rows to the total
-```
-
-The Windows handler will own the Windows Event Log workflow. The host metrics
-handler will own the host-health workflow.
-
-For a beginner, this is the practical reason to use polymorphism: different
-objects can do different work while the calling code uses the same method name.
-
-After Phase 8, `Collector` should become smaller. It should focus on the
-polling loop, enabled sources, handler dispatch, database rollback for failed
-runs, and collector-run records.
-
-## `_ingest_event_source`
-
-```python
-def _ingest_event_source(self, source):
-```
-
-This method reads the Windows Event Log channels configured on a `TelemetrySource`.
+This method reads the Windows Event Log channels configured on a
+`TelemetrySource`.
 
 It also handles permission errors.
 
 For example, Windows Security logs often require administrator permissions. If Windows returns access denied, the collector logs a warning instead of crashing.
 
-## `_ingest_channel`
+## `WindowsEventSourceHandler._ingest_channel`
 
 ```python
 def _ingest_channel(self, source_type, channel):
@@ -367,6 +316,31 @@ sysmon:Microsoft-Windows-Sysmon/Operational
 ```
 
 That lets the collector track each channel separately.
+
+## `HostMetricsSourceHandler.ingest`
+
+```python
+def ingest(self, source):
+```
+
+This asks `HostMetricsCollector` for a system health snapshot.
+
+`ingest.py` does not calculate or persist the health values directly. The host
+metrics handler:
+
+1. Requests metrics from `app/health_metrics.py`.
+2. Skips the insert if `psutil` is unavailable.
+3. Inserts the metrics into the `host_metrics` table when they are available.
+4. Commits the host metrics transaction.
+
+If `psutil` is installed, the snapshot contains:
+
+- CPU usage
+- memory usage
+- disk usage
+- boot time
+
+If `psutil` is not installed, the handler returns `0` and skips metrics.
 
 ## Persistence Repository
 
@@ -468,7 +442,7 @@ self.repository.insert_host_metrics(metrics)
 
 This stages host-health snapshots for the `host_metrics` table.
 
-`HostMetricsCollector` collects the values. `TelemetryRepository` inserts them. `ingest.py` commits the transaction.
+`HostMetricsCollector` collects the values. `TelemetryRepository` inserts them. `HostMetricsSourceHandler` commits the transaction.
 
 ## Collector Run Persistence
 
@@ -490,7 +464,12 @@ This helps you monitor whether the collector is healthy.
 
 ## Transaction Ownership
 
-`TelemetryRepository` stages SQL work, but `ingest.py` commits or rolls back.
+`TelemetryRepository` stages SQL work, but source handlers and `ingest.py` own transaction boundaries.
+
+`WindowsEventSourceHandler` commits each successful Windows channel before it
+advances the checkpoint. `HostMetricsSourceHandler` commits successful host
+metric inserts. `Collector.run_once()` records and commits the overall
+collector-run record.
 
 The safe Windows event ordering is:
 
@@ -625,22 +604,19 @@ Create Windows reader
 Create Windows event parser
 Create host metrics collector
 Connect to PostgreSQL
+Create source handler registry
 
 Forever:
     Get enabled sources
     For each source:
-        If it is a Windows event source:
-            Find Windows Event Log channels
-            Read new rendered XML events
-            Parse XML into normalized event data
-            Insert raw/normalized event
-            Extract process event if applicable
-            Commit database changes
-            Update state
+        Find the handler for the source kind
+        Ask the handler to ingest the source
 
-        If it is health_metrics:
-            Collect host metrics
-            Insert host metric row
+        If the handler is WindowsEventSourceHandler:
+            It reads channels, parses events, persists rows, commits, and updates state
+
+        If the handler is HostMetricsSourceHandler:
+            It collects host metrics, persists the row, and commits
 
     Insert collector run result
     Sleep

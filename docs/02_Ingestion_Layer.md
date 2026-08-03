@@ -4,18 +4,20 @@ The ingestion layer is coordinated by `app/ingest.py`, with Windows
 Event Log access implemented in `app/windows_reader.py` and rendered
 Windows event parsing implemented in
 `app/parsers/windows_event_parser.py`. Database persistence is handled
-by `app/repository.py` using the transaction controlled by `app/ingest.py`.
+by `app/repository.py` using transactions controlled by the source handlers
+and collector orchestrator.
 Telemetry source definitions and dispatch categories are defined in
-`app/sources.py`.
+`app/sources.py`, and source-specific execution lives in
+`app/source_handlers.py`.
 
 ## Responsibilities
 
 ### `app/ingest.py`
 
 - Coordinate enabled telemetry sources.
-- Decide which telemetry records should be persisted.
-- Commit and roll back database transactions.
-- Commit successful ingestion before advancing collector state.
+- Dispatch each telemetry source to the handler registered for its source kind.
+- Record collector-run status.
+- Own the polling loop.
 
 ### `app/health_metrics.py`
 
@@ -34,7 +36,7 @@ Telemetry source definitions and dispatch categories are defined in
 - Validate names supplied through `COLLECTOR_SOURCES`.
 - Provide explicit source definitions to the ingestion orchestrator.
 
-### Planned `app/source_handlers.py`
+### `app/source_handlers.py`
 
 - Define the common `SourceHandler` interface.
 - Implement Windows Event Log source execution.
@@ -42,7 +44,7 @@ Telemetry source definitions and dispatch categories are defined in
 - Isolate source-specific transactions and error behavior.
 - Allow the ingestion orchestrator to dispatch sources polymorphically.
 
-Phase 8 will move Windows channel-processing logic and host metrics ingestion logic out of `app/ingest.py`. The ingestion orchestrator will resolve the appropriate handler from the source kind and call `handler.ingest(source)`.
+Windows channel-processing logic and host metrics ingestion logic are no longer implemented directly in `app/ingest.py`. The ingestion orchestrator resolves the appropriate handler from the source kind and calls `handler.ingest(source)`.
 
 ### `app/windows_reader.py`
 
@@ -67,21 +69,9 @@ Phase 8 will move Windows channel-processing logic and host metrics ingestion lo
 - Persist polling results to `collector_runs`.
 - Execute SQL using the transaction supplied by the ingestion orchestrator.
 
-`TelemetryRepository` does not commit or roll back transactions. Transaction ownership remains in `app/ingest.py`.
+`TelemetryRepository` does not commit or roll back transactions. Source-level transaction boundaries live in source handlers. Collector-run transaction ownership remains in `app/ingest.py`.
 
 ## Persistence flow
-
-```text
-WindowsEventReader
--> WindowsEventParser
--> Collector orchestration
--> TelemetryRepository
--> PostgreSQL
--> commit
--> checkpoint update
-```
-
-The planned Phase 8 source-handler flow is:
 
 ```text
 Configuration
@@ -96,11 +86,10 @@ Configuration
 
 ## Host-health collection
 
-When `health_metrics` is enabled, `app/ingest.py` requests a snapshot
-from `HostMetricsCollector`. The collector returns normalized CPU,
-memory, disk, and boot-time values. The ingestion orchestrator passes
-that snapshot to `TelemetryRepository`, which inserts it into the
-`host_metrics` table using the orchestrator-controlled transaction.
+When `health_metrics` is enabled, `app/ingest.py` dispatches the source to
+`HostMetricsSourceHandler`. The handler requests a snapshot from
+`HostMetricsCollector`, passes that snapshot to `TelemetryRepository`, and
+commits the host metrics transaction.
 
 ## Source Control
 
@@ -112,12 +101,12 @@ Enabled source names are loaded from `COLLECTOR_SOURCES`. If the variable is not
 
 The collector tracks the latest processed `EventRecordID` per source and channel. This avoids repeatedly processing the same event logs.
 
-Checkpoint loading, validation, updates, and persistence are handled by `app/state.py`.
+Checkpoint loading, validation, updates, and persistence are handled by `app/state.py`. Windows checkpoint updates are coordinated by `WindowsEventSourceHandler` after the database commit succeeds.
 
 ## Batch Processing
 
-The collector reads up to `COLLECTOR_BATCH_SIZE` events per channel per polling run.
+`WindowsEventSourceHandler` reads up to `COLLECTOR_BATCH_SIZE` events per channel per polling run through `WindowsEventReader`.
 
 ## Error Handling
 
-Database failures trigger a rollback. Windows access-denied errors are logged so restricted channels do not stop the whole collection cycle.
+Database failures trigger a rollback. Windows access-denied errors are handled by `WindowsEventSourceHandler` so restricted channels do not stop the whole collection cycle.

@@ -9,13 +9,20 @@ Windows Hosts
 Source Registry
     |
     v
-WindowsEventReader
-    |
-    v
-WindowsEventParser
-    |
-    v
 Collector Orchestrator
+    |
+    v
+Source Handler Registry
+    |
+    +-- WindowsEventSourceHandler
+    |       |
+    |       v
+    |   WindowsEventReader
+    |       |
+    |       v
+    |   WindowsEventParser
+    |
+    `-- HostMetricsSourceHandler
     |
     v
 TelemetryRepository
@@ -32,7 +39,7 @@ Dashboard and Analysis Layer
 
 ## Collector Orchestrator
 
-`app/ingest.py` coordinates enabled telemetry sources. It decides which sources run, asks helper modules for data, calls the repository to stage database writes, owns commit and rollback behavior, and advances checkpoints only after successful commits.
+`app/ingest.py` coordinates enabled telemetry sources. It decides which sources run, dispatches each source to the handler registered for its source kind, records collector-run status, and owns the polling loop.
 
 The collector is still the entry point:
 
@@ -46,11 +53,11 @@ py -m app.ingest
 
 The registry replaces dynamic `getattr()` dispatch with explicit source definitions. Unknown source names now raise a readable configuration error that lists supported sources.
 
-## Planned Source Handler Layer
+## Source Handler Layer
 
-Phase 8 will move source-specific execution logic out of `app/ingest.py` and into `app/source_handlers.py`.
+`app/source_handlers.py` owns source-specific execution logic.
 
-The planned flow is:
+The handler flow is:
 
 ```text
 Configuration
@@ -74,7 +81,9 @@ TelemetryRepository
 PostgreSQL Database
 ```
 
-After this refactor, the collector should resolve a source definition, find the matching handler by source kind, and call `handler.ingest(source)`. Windows channel processing and host metrics persistence should belong to concrete source handlers.
+The collector resolves a source definition, finds the matching handler by source kind, and calls `handler.ingest(source)`. Windows channel processing and host metrics persistence belong to concrete source handlers.
+
+`WindowsEventSourceHandler` owns the Windows event ingestion workflow. `HostMetricsSourceHandler` owns the host-health ingestion workflow.
 
 ## Windows Event Reader
 
@@ -108,6 +117,7 @@ It owns:
 - `collector_runs`
 
 The repository does not commit or roll back. Transaction ownership remains in `app/ingest.py`.
+Source-level transaction boundaries live in source handlers. Collector-run transaction ownership remains in `app/ingest.py`.
 
 ## State Layer
 

@@ -9,8 +9,12 @@ from app.sources import SourceKind, TelemetrySource
 
 def make_collector_without_init():
     collector = Collector.__new__(Collector)
-    collector._ingest_event_source = Mock(return_value=5)
-    collector.ingest_health_metrics = Mock(return_value=1)
+    collector.source_handlers = {
+        SourceKind.WINDOWS_EVENT: Mock(),
+        SourceKind.HOST_METRICS: Mock(),
+    }
+    collector.source_handlers[SourceKind.WINDOWS_EVENT].ingest.return_value = 5
+    collector.source_handlers[SourceKind.HOST_METRICS].ingest.return_value = 1
     return collector
 
 
@@ -26,7 +30,9 @@ def test_dispatches_windows_source():
     result = collector._ingest_source(source)
 
     assert result == 5
-    collector._ingest_event_source.assert_called_once_with(source)
+    collector.source_handlers[
+        SourceKind.WINDOWS_EVENT
+    ].ingest.assert_called_once_with(source)
 
 
 def test_dispatches_health_metrics_source():
@@ -40,7 +46,25 @@ def test_dispatches_health_metrics_source():
     result = collector._ingest_source(source)
 
     assert result == 1
-    collector.ingest_health_metrics.assert_called_once_with()
+    collector.source_handlers[
+        SourceKind.HOST_METRICS
+    ].ingest.assert_called_once_with(source)
+
+
+def test_rejects_unregistered_handler_kind():
+    collector = Collector.__new__(Collector)
+    collector.source_handlers = {}
+
+    source = TelemetrySource(
+        name="sysmon",
+        kind=SourceKind.WINDOWS_EVENT,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="No handler registered",
+    ):
+        collector._ingest_source(source)
 
 
 def test_enabled_sources_resolves_configured_names():
