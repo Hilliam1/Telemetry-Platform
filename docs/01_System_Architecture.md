@@ -46,6 +46,36 @@ py -m app.ingest
 
 The registry replaces dynamic `getattr()` dispatch with explicit source definitions. Unknown source names now raise a readable configuration error that lists supported sources.
 
+## Planned Source Handler Layer
+
+Phase 8 will move source-specific execution logic out of `app/ingest.py` and into `app/source_handlers.py`.
+
+The planned flow is:
+
+```text
+Configuration
+    |
+    v
+Source Registry
+    |
+    v
+Collector Orchestrator
+    |
+    v
+Source Handler Registry
+    |
+    +-- WindowsEventSourceHandler
+    `-- HostMetricsSourceHandler
+    |
+    v
+TelemetryRepository
+    |
+    v
+PostgreSQL Database
+```
+
+After this refactor, the collector should resolve a source definition, find the matching handler by source kind, and call `handler.ingest(source)`. Windows channel processing and host metrics persistence should belong to concrete source handlers.
+
 ## Windows Event Reader
 
 `app/windows_reader.py` owns direct Windows Event Log access. It builds checkpoint-aware queries, calls `EvtQuery`, reads batches with `EvtNext`, renders events with `EvtRender`, and closes Windows query and event handles.

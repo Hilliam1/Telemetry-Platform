@@ -170,22 +170,17 @@ This closes the database connection.
 
 It is called when the program exits.
 
-## Source Ingest Methods
+## Current Source Dispatch
 
-Methods like this are small wrappers:
+Older versions used separate methods such as `ingest_sysmon()` and
+`ingest_powershell()`.
 
-```python
-def ingest_sysmon(self):
-    return self._ingest_event_channels("sysmon")
-```
+The current collector no longer needs one method per source name. Instead,
+`app/sources.py` turns configured source names into `TelemetrySource` objects.
+Then `ingest.py` checks each source kind and sends it to the correct workflow.
 
-They call the shared ingestion logic with a specific source type.
-
-For example:
-
-- `ingest_sysmon()` reads Sysmon.
-- `ingest_powershell()` reads PowerShell logs.
-- `ingest_windows_security()` reads Security logs.
+For example, a Windows source uses the Windows Event Log workflow, while the
+`health_metrics` source uses the host-health workflow.
 
 ## Health Metrics
 
@@ -238,16 +233,10 @@ It loops through the enabled sources:
 
 ```python
 for source in self._enabled_sources():
-    total += getattr(self, f"ingest_{source}")()
+    total += self._ingest_source(source)
 ```
 
-This is dynamic method calling.
-
-If `source` is `"sysmon"`, Python calls:
-
-```python
-self.ingest_sysmon()
-```
+Each `source` is a `TelemetrySource` object from `app/sources.py`.
 
 If an error happens, the collector rolls back the database transaction and records the failure.
 
@@ -306,6 +295,39 @@ getattr(self, f"ingest_{source}")()
 ```
 
 The new registry is easier to validate and safer to expand.
+
+## Upcoming Phase 8: Source Handlers
+
+Phase 8 will make the source registry even more useful by adding source
+handlers.
+
+Right now, `ingest.py` can resolve a source definition, but it still contains
+the details for Windows event ingestion and host metrics ingestion.
+
+Phase 8 should introduce a common handler interface:
+
+```python
+handler.ingest(source)
+```
+
+That means the collector can do the same thing for every source:
+
+```text
+look up the source
+find the handler
+ask the handler to ingest it
+add the number of inserted rows to the total
+```
+
+The Windows handler will own the Windows Event Log workflow. The host metrics
+handler will own the host-health workflow.
+
+For a beginner, this is the practical reason to use polymorphism: different
+objects can do different work while the calling code uses the same method name.
+
+After Phase 8, `Collector` should become smaller. It should focus on the
+polling loop, enabled sources, handler dispatch, database rollback for failed
+runs, and collector-run records.
 
 ## `_ingest_event_source`
 

@@ -34,6 +34,16 @@ Telemetry source definitions and dispatch categories are defined in
 - Validate names supplied through `COLLECTOR_SOURCES`.
 - Provide explicit source definitions to the ingestion orchestrator.
 
+### Planned `app/source_handlers.py`
+
+- Define the common `SourceHandler` interface.
+- Implement Windows Event Log source execution.
+- Implement host-health source execution.
+- Isolate source-specific transactions and error behavior.
+- Allow the ingestion orchestrator to dispatch sources polymorphically.
+
+Phase 8 will move Windows channel-processing logic and host metrics ingestion logic out of `app/ingest.py`. The ingestion orchestrator will resolve the appropriate handler from the source kind and call `handler.ingest(source)`.
+
 ### `app/windows_reader.py`
 
 - Build checkpoint-aware Windows Event Log queries.
@@ -69,6 +79,19 @@ WindowsEventReader
 -> PostgreSQL
 -> commit
 -> checkpoint update
+```
+
+The planned Phase 8 source-handler flow is:
+
+```text
+Configuration
+-> Source Registry
+-> Collector
+-> Source Handler
+   |-> Windows Event Handler
+   `-> Host Metrics Handler
+-> TelemetryRepository
+-> PostgreSQL
 ```
 
 ## Host-health collection
