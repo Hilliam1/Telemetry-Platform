@@ -90,4 +90,3 @@ def test_state_does_not_advance_when_database_commit_fails():
 
     assert collector.state.updated == []
     assert collector.state.saved is False
-

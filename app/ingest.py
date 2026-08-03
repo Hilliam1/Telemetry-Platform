@@ -42,18 +42,10 @@ class Collector:
     def __init__(self):
         self.hostname = socket.gethostname()
         self.settings = load_collector_settings()
-        self.state = CollectorState(
-            self.settings.state_file
-        )
-        self.reader = WindowsEventReader(
-            batch_size=self.settings.batch_size
-        )
-        self.parser = WindowsEventParser(
-            default_computer=self.hostname
-        )
-        self.metrics_collector = HostMetricsCollector(
-            hostname=self.hostname
-        )
+        self.state = CollectorState(self.settings.state_file)
+        self.reader = WindowsEventReader(batch_size=self.settings.batch_size)
+        self.parser = WindowsEventParser(default_computer=self.hostname)
+        self.metrics_collector = HostMetricsCollector(hostname=self.hostname)
         self.conn = create_connection()
         self.repository = TelemetryRepository(self.conn)
 
@@ -168,13 +160,10 @@ class Collector:
         )
 
         parsed_events = [
-            self.parser.parse(event_xml)
-            for event_xml in event_xml_documents
+            self.parser.parse(event_xml) for event_xml in event_xml_documents
         ]
 
-        parsed_events.sort(
-            key=lambda item: item["record_id"]
-        )
+        parsed_events.sort(key=lambda item: item["record_id"])
 
         inserted = 0
         highest_record_id = None

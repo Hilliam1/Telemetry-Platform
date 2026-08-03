@@ -69,9 +69,7 @@ class TelemetryRepository:
         raw = event.get("raw", {})
         data = raw.get("event_data", {})
 
-        sha256 = self._extract_sha256(
-            data.get("Hashes", "")
-        )
+        sha256 = self._extract_sha256(data.get("Hashes", ""))
 
         with self.conn.cursor() as cur:
             cur.execute(

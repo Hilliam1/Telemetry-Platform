@@ -79,9 +79,7 @@ def test_sysmon_process_event_is_inserted():
 
 
 def test_extract_sha256_is_case_insensitive():
-    result = TelemetryRepository._extract_sha256(
-        "MD5=abc, sha256=def123"
-    )
+    result = TelemetryRepository._extract_sha256("MD5=abc, sha256=def123")
 
     assert result == "def123"
 
