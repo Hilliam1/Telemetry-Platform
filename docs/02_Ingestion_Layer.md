@@ -2,7 +2,7 @@
 
 The ingestion layer is coordinated by `app/collector.py`, with collector
 dependency construction handled by `app/collector_factory.py`. Windows
-Event Log access implemented in `app/windows_reader.py` and rendered
+Event Log access is implemented in `app/windows_reader.py` and rendered
 Windows event parsing implemented in
 `app/parsers/windows_event_parser.py`. Database persistence is handled
 by `app/repository.py` using transactions controlled by the source handlers
