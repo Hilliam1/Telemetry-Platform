@@ -7,6 +7,8 @@
 - Sysmon process event parsing
 - PostgreSQL dependency selection
 - Engineering documentation structure
+- Source handler polymorphism for collector execution
+- Collector service and factory split
 
 ## In Progress
 
@@ -16,11 +18,9 @@
 - Deployment guide
 - Troubleshooting guide
 - v0.0.2 refactor planning
-- Phase 8 source-handler refactor planning
 
 ## Future
 
-- Source handler polymorphism for collector execution
 - FastAPI telemetry API
 - Dashboard interface
 - Linux collector

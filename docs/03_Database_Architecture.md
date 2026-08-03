@@ -72,7 +72,7 @@ Collector persistence SQL lives in `app/repository.py`.
 - `host_metrics`
 - `collector_runs`
 
-`TelemetryRepository` does not commit or roll back transactions. `app/ingest.py` controls transaction boundaries so event rows and checkpoint updates remain ordered safely.
+`TelemetryRepository` does not commit or roll back transactions. Source handlers control source-level transaction boundaries, and `app/collector.py` controls collector-run transaction boundaries. Windows event handlers still commit database rows before advancing checkpoint state.
 
 ## Transaction Ordering
 

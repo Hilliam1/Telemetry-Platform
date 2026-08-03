@@ -9,6 +9,9 @@ Windows Hosts
 Source Registry
     |
     v
+Collector Factory
+    |
+    v
 Collector Orchestrator
     |
     v
@@ -39,7 +42,11 @@ Dashboard and Analysis Layer
 
 ## Collector Orchestrator
 
-`app/ingest.py` coordinates enabled telemetry sources. It decides which sources run, dispatches each source to the handler registered for its source kind, records collector-run status, and owns the polling loop.
+`app/collector.py` coordinates enabled telemetry sources. It decides which sources run, dispatches each source to the handler registered for its source kind, records collector-run status, and owns the polling loop.
+
+`app/collector_factory.py` constructs the collector and connects its dependencies. It loads settings, resolves the hostname, creates state, reader, parser, metrics, repository, and source-handler objects, then returns a fully configured `Collector`.
+
+`app/ingest.py` is the thin executable entry point. It configures logging, calls `create_collector()`, starts the polling loop, handles keyboard interruption, and closes the collector during shutdown.
 
 The collector is still the entry point:
 
@@ -64,6 +71,9 @@ Configuration
     |
     v
 Source Registry
+    |
+    v
+Collector Factory
     |
     v
 Collector Orchestrator
@@ -116,8 +126,7 @@ It owns:
 - `host_metrics`
 - `collector_runs`
 
-The repository does not commit or roll back. Transaction ownership remains in `app/ingest.py`.
-Source-level transaction boundaries live in source handlers. Collector-run transaction ownership remains in `app/ingest.py`.
+The repository does not commit or roll back. Source-level transaction boundaries live in source handlers. Collector-run transaction ownership remains in `app/collector.py`.
 
 ## State Layer
 

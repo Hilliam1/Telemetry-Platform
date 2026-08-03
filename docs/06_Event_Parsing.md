@@ -2,7 +2,8 @@
 
 Windows events are rendered as XML by `app/windows_reader.py` before being parsed into Python dictionaries by `app/parsers/windows_event_parser.py`.
 
-`app/ingest.py` no longer traverses XML directly. It coordinates the parser:
+`app/source_handlers.py` coordinates parser usage for Windows event sources.
+`app/collector.py` and `app/ingest.py` do not traverse XML directly:
 
 ```python
 event = self.parser.parse(event_xml)

@@ -36,13 +36,13 @@ The preferred API command is:
 py -m uvicorn app.api:app --reload
 ```
 
-Avoid relying on direct file execution such as:
+Do not rely on direct file execution such as:
 
 ```powershell
 python app\ingest.py
 ```
 
-That may work because of the local import fallback, but module execution is the canonical path after the app was split into packages and helper modules.
+Module execution is the canonical path after the app was split into packages and helper modules. `app/ingest.py` is now a thin entry point that imports the collector factory.
 
 ## Database Connection Refused
 
@@ -214,8 +214,8 @@ py -m ruff --version
 Run a focused Phase 6 check:
 
 ```powershell
-py -m ruff check app/ingest.py app/repository.py tests/test_ingest_state.py tests/test_repository.py
-py -m ruff format --check app/ingest.py app/repository.py tests/test_ingest_state.py tests/test_repository.py
+py -m ruff check app/collector.py app/collector_factory.py app/ingest.py app/source_handlers.py tests/test_collector.py tests/test_collector_factory.py
+py -m ruff format --check app/collector.py app/collector_factory.py app/ingest.py app/source_handlers.py tests/test_collector.py tests/test_collector_factory.py
 ```
 
 Run a repo-wide diagnostic:
@@ -246,7 +246,7 @@ Then inspect the file around the reported line.
 
 Common causes during these refactors:
 
-- Code accidentally pasted at top level instead of inside `Collector.__init__`.
+- Code accidentally pasted at top level instead of inside a class or function.
 - Method body not indented under `def`.
 - Closing parenthesis placed too early or too late.
 - Old method removed before tests were updated to use the new module boundary.
@@ -267,7 +267,9 @@ Expected result:
 no matches
 ```
 
-`commit()` and `rollback()` should remain in `app/ingest.py`.
+`commit()` and `rollback()` should remain outside `app/repository.py`.
+Source-level transaction calls live in source handlers, and collector-run
+transaction calls live in `app/collector.py`.
 
 This preserves the important ordering:
 

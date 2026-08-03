@@ -23,17 +23,20 @@ The project starts with Windows telemetry because Windows Event Logs and Sysmon 
 - Host health metrics
 - Collector state tracking
 - FastAPI query service
-- Modular collector internals for configuration, database connections, state, reading, parsing, host metrics, and persistence
+- Modular collector internals for configuration, database connections, collector orchestration, dependency construction, state, reading, parsing, host metrics, source handlers, and persistence
 
 ## Current Internal Modules
 
 - `app/config.py` loads environment-based settings.
 - `app/database.py` creates PostgreSQL connections.
-- `app/ingest.py` coordinates collector execution.
+- `app/collector.py` coordinates collector execution.
+- `app/collector_factory.py` constructs the collector and its dependencies.
+- `app/ingest.py` configures logging and starts the collector process.
 - `app/windows_reader.py` reads rendered XML from Windows Event Logs.
 - `app/parsers/windows_event_parser.py` parses and normalizes Windows event XML.
 - `app/health_metrics.py` collects host-health snapshots.
-- `app/repository.py` persists collector records using the orchestrator-controlled transaction.
+- `app/source_handlers.py` executes source-specific ingestion workflows.
+- `app/repository.py` persists collector records using caller-controlled transactions.
 - `app/sources.py` defines supported telemetry sources and dispatch categories.
 - `app/state.py` manages checkpoint state.
 - `app/api.py` exposes query endpoints.

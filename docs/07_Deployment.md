@@ -48,8 +48,8 @@ py -m compileall app tests
 For the currently formatted Phase 6 files:
 
 ```powershell
-py -m ruff check app/ingest.py app/repository.py tests/test_ingest_state.py tests/test_repository.py
-py -m ruff format --check app/ingest.py app/repository.py tests/test_ingest_state.py tests/test_repository.py
+py -m ruff check app/collector.py app/collector_factory.py app/ingest.py app/source_handlers.py tests/test_collector.py tests/test_collector_factory.py
+py -m ruff format --check app/collector.py app/collector_factory.py app/ingest.py app/source_handlers.py tests/test_collector.py tests/test_collector_factory.py
 ```
 
 ## Environment Variables

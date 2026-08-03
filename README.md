@@ -27,7 +27,10 @@ Windows Event Logs
 Source Registry
         |
         v
-Collector Orchestration
+Collector Factory
+        |
+        v
+Collector Service
         |
         v
 Source Handler Registry
@@ -51,10 +54,13 @@ FastAPI Query Service
 Host health metrics follow a parallel path:
 
 ```text
-HostMetricsCollector
+Collector Service
         |
         v
 Source Handler Registry
+        |
+        v
+HostMetricsCollector
         |
         v
 Persistence Repository
@@ -91,6 +97,8 @@ Telemetry-Platform/
 |-- app/
 |   |-- __init__.py
 |   |-- api.py
+|   |-- collector.py
+|   |-- collector_factory.py
 |   |-- config.py
 |   |-- database.py
 |   |-- health_metrics.py

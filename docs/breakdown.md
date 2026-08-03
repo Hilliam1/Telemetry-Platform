@@ -1,31 +1,35 @@
-# Beginner Breakdown of `app/ingest.py`
+# Beginner Breakdown of the Collector Entry Point and Service
 
-This document explains `app/ingest.py` for someone who is still learning Python and security engineering.
+This document explains the collector startup path for someone who is still learning Python and security engineering.
 
 ## Big Picture
 
-`ingest.py` is the Windows telemetry collector orchestrator.
+`app/ingest.py` is now the Windows telemetry collector entry point.
 
-That means it coordinates the work, but several specialized modules now own
-the details:
+That means it starts the process, but the collector logic lives in other
+modules:
 
 - `app/config.py` reads environment variables.
 - `app/database.py` creates PostgreSQL connections.
+- `app/collector_factory.py` builds the collector and wires dependencies together.
+- `app/collector.py` runs the collector orchestration service.
 - `app/windows_reader.py` reads Windows Event Log XML.
 - `app/parsers/windows_event_parser.py` parses and normalizes Windows event XML.
 - `app/health_metrics.py` collects CPU, memory, disk, and boot-time metrics.
 - `app/sources.py` defines supported telemetry sources and their dispatch categories.
+- `app/source_handlers.py` runs source-specific ingestion workflows.
 - `app/state.py` saves collector checkpoints.
 
-Its job is to:
+The full collector system:
 
 1. Connect to a PostgreSQL database.
-2. Ask the Windows reader to read event logs from several Windows channels.
-3. Ask the Windows parser to convert each event from XML into Python data.
-4. Insert the event into database tables.
-5. Track the last event it processed so it does not repeat old work.
-6. Ask the host metrics collector for CPU, memory, disk, and boot-time data.
-7. Run continuously in a loop.
+2. Build readers, parsers, state, repository, and handlers.
+3. Resolve enabled telemetry sources.
+4. Ask the right handler to ingest each source.
+5. Insert telemetry into database tables.
+6. Track the last event it processed so it does not repeat old work.
+7. Ask the host metrics collector for CPU, memory, disk, and boot-time data.
+8. Run continuously in a loop.
 
 The pipeline looks like this:
 
@@ -36,16 +40,12 @@ Host metrics -> Python dictionary -> PostgreSQL table
 
 ## Imports
 
-The file starts by importing tools it needs.
+Each module imports only the tools it needs.
 
 Standard Python imports in `ingest.py`:
 
 - `logging` writes status and error messages.
 - `os` reads environment variables.
-- `socket` gets the computer hostname.
-- `sys` supports running the file directly during local development.
-- `time` sleeps between polling cycles.
-- `datetime` handles timestamps.
 
 Third-party and Windows-specific imports:
 
@@ -53,25 +53,24 @@ Third-party and Windows-specific imports:
 
 Application imports:
 
-- `load_collector_settings()` reads collector settings from `app/config.py`.
-- `create_connection()` creates a PostgreSQL connection through `app/database.py`.
-- `CollectorState` loads and saves checkpoint state through `app/state.py`.
-- `WindowsEventReader` reads rendered XML from Windows Event Logs.
-- `WindowsEventParser` converts rendered XML into normalized event dictionaries.
-- `HostMetricsCollector` collects host health metrics if `psutil` is available.
-- `WindowsEventSourceHandler` runs the Windows event source workflow.
-- `HostMetricsSourceHandler` runs the host metrics source workflow.
-- `get_sources()` resolves configured source names into explicit source definitions.
+- `create_collector()` builds a fully configured collector through `app/collector_factory.py`.
+- `Collector` lives in `app/collector.py`.
+- `load_collector_settings()` reads collector settings in `app/collector_factory.py`.
+- `create_connection()` creates a PostgreSQL connection in `app/collector_factory.py`.
+- `CollectorState`, `WindowsEventReader`, `WindowsEventParser`, `HostMetricsCollector`, and the source handlers are constructed in `app/collector_factory.py`.
+- `get_sources()` resolves configured source names inside `app/collector.py`.
 
 ## Configuration
 
-Collector settings are now read by `app/config.py`.
+Collector settings are read by `app/config.py` and loaded by
+`app/collector_factory.py`.
 
 ```python
 settings = load_collector_settings()
 ```
 
-That keeps environment-variable parsing out of `ingest.py`.
+That keeps environment-variable parsing out of `ingest.py` and out of the
+collector service.
 
 For example, if `COLLECTOR_POLL_SECONDS` is missing, the collector waits 5 seconds between runs.
 
@@ -134,41 +133,68 @@ Example:
 4 -> Information
 ```
 
-## The `Collector` Class
+## `app/ingest.py`
 
-Most of the script lives inside the `Collector` class.
-
-A class is a way to group related data and functions together. In this file, the class represents the telemetry collector.
-
-## `__init__`
+`app/ingest.py` is intentionally small.
 
 ```python
-def __init__(self):
+def main() -> None:
 ```
 
-This method runs when a new `Collector` object is created.
+`main()`:
 
-It creates the main objects the collector needs:
+1. Configures logging.
+2. Calls `create_collector()`.
+3. Starts `collector.run_forever()`.
+4. Handles Ctrl+C.
+5. Closes the collector during shutdown.
 
-1. Gets the hostname.
-2. Loads collector settings.
-3. Creates the checkpoint state manager.
-4. Creates the Windows Event Log reader.
-5. Creates the Windows event parser.
-6. Creates the host metrics collector.
-7. Connects to PostgreSQL.
-8. Creates a handler registry for Windows event sources and host metrics sources.
+The startup command stays the same:
+
+```powershell
+py -m app.ingest
+```
+
+## `app/collector_factory.py`
+
+`app/collector_factory.py` is the composition root.
+
+That means it is the one place where concrete objects are created and connected
+together.
+
+It creates:
+
+1. The hostname.
+2. Collector settings.
+3. The checkpoint state manager.
+4. The Windows Event Log reader.
+5. The Windows event parser.
+6. The host metrics collector.
+7. The PostgreSQL connection.
+8. The telemetry repository.
+9. The source handler registry.
+10. The `Collector` service.
 
 The database connection uses environment variables such as `PGHOST`, `PGDATABASE`, `PGUSER`, `PGPASSWORD`, and `PGPORT`.
+
+If factory construction fails after opening PostgreSQL, the factory closes the
+connection before re-raising the error.
+
+## The `Collector` Class
+
+The `Collector` class now lives in `app/collector.py`.
+
+A class is a way to group related data and functions together. In this project,
+the class represents the long-running telemetry collector service.
 
 ## `close`
 
 ```python
-def close(self):
+def close(self) -> None:
     self.conn.close()
 ```
 
-This closes the database connection.
+This closes the shared database connection.
 
 It is called when the program exits.
 
@@ -179,7 +205,7 @@ Older versions used separate methods such as `ingest_sysmon()` and
 
 The current collector no longer needs one method per source name. Instead,
 `app/sources.py` turns configured source names into `TelemetrySource` objects.
-Then `ingest.py` uses each source kind to find the correct source handler.
+Then `app/collector.py` uses each source kind to find the correct source handler.
 
 For example, a Windows source uses the Windows Event Log workflow, while the
 `health_metrics` source uses the host-health workflow.
@@ -257,7 +283,7 @@ Example:
 COLLECTOR_SOURCES=sysmon,powershell,health_metrics
 ```
 
-`ingest.py` then asks `app/sources.py` to resolve those names into `TelemetrySource` objects.
+`app/collector.py` then asks `app/sources.py` to resolve those names into `TelemetrySource` objects.
 
 If a source name is wrong, the registry raises a readable error instead of letting `getattr()` fail later.
 
@@ -325,7 +351,7 @@ def ingest(self, source):
 
 This asks `HostMetricsCollector` for a system health snapshot.
 
-`ingest.py` does not calculate or persist the health values directly. The host
+`app/collector.py` does not calculate or persist the health values directly. The host
 metrics handler:
 
 1. Requests metrics from `app/health_metrics.py`.
@@ -349,7 +375,7 @@ self.repository.insert_log_event(...)
 self.repository.insert_process_event(event)
 ```
 
-`ingest.py` no longer contains the SQL insert statements for collector data.
+`app/collector.py` and `app/ingest.py` do not contain SQL insert statements for collector data.
 
 Database insert logic now belongs to `app/repository.py`.
 
@@ -359,11 +385,11 @@ The repository class is called:
 TelemetryRepository
 ```
 
-The collector creates it after opening the database connection:
+The factory creates it after opening the database connection:
 
 ```python
-self.conn = create_connection()
-self.repository = TelemetryRepository(self.conn)
+conn = create_connection()
+repository = TelemetryRepository(conn)
 ```
 
 The repository stages rows for these tables:
@@ -375,7 +401,8 @@ The repository stages rows for these tables:
 
 It uses the existing database connection, but it does not call `commit()` or `rollback()`.
 
-That is important because transaction ownership stays in `ingest.py`.
+That is important because transaction ownership stays with source handlers and
+the collector service.
 
 ## Log Event Persistence
 
@@ -464,11 +491,11 @@ This helps you monitor whether the collector is healthy.
 
 ## Transaction Ownership
 
-`TelemetryRepository` stages SQL work, but source handlers and `ingest.py` own transaction boundaries.
+`TelemetryRepository` stages SQL work, but source handlers and `app/collector.py` own transaction boundaries.
 
 `WindowsEventSourceHandler` commits each successful Windows channel before it
 advances the checkpoint. `HostMetricsSourceHandler` commits successful host
-metric inserts. `Collector.run_once()` records and commits the overall
+metric inserts. `Collector.run_once()` in `app/collector.py` records and commits the overall
 collector-run record.
 
 The safe Windows event ordering is:
@@ -491,7 +518,7 @@ event = self.parser.parse(event_xml)
 
 Windows events are XML documents.
 
-`ingest.py` no longer parses XML directly. XML parsing now belongs to
+`app/collector.py` and `app/ingest.py` do not parse XML directly. XML parsing belongs to
 `app/parsers/windows_event_parser.py`.
 
 The parser turns an XML event into a Python dictionary.
@@ -515,7 +542,7 @@ The returned dictionary is easier for Python and SQL to work with.
 metrics = self.metrics_collector.collect()
 ```
 
-`ingest.py` no longer imports `psutil` or calculates CPU, memory, disk, or boot-time values.
+`app/collector.py` and `app/ingest.py` do not import `psutil` or calculate CPU, memory, disk, or boot-time values.
 
 That work now belongs to `app/health_metrics.py`.
 
@@ -556,7 +583,7 @@ event_xml_documents = self.reader.read_channel(
 )
 ```
 
-`ingest.py` no longer calls `win32evtlog` directly.
+`app/collector.py` and `app/ingest.py` do not call `win32evtlog` directly.
 
 Windows Event Log access now belongs to `app/windows_reader.py`.
 
@@ -579,7 +606,7 @@ This is the program startup function.
 It:
 
 1. Configures logging.
-2. Creates a `Collector`.
+2. Creates a `Collector` through `create_collector()`.
 3. Runs the collector forever.
 4. Handles Ctrl+C.
 5. Closes the database connection.
@@ -599,12 +626,14 @@ mean: only run `main()` when this file is executed directly.
 Start program
 Configure logging
 Create Collector
-Load collector state
-Create Windows reader
-Create Windows event parser
-Create host metrics collector
-Connect to PostgreSQL
-Create source handler registry
+Collector factory:
+    Load collector state
+    Create Windows reader
+    Create Windows event parser
+    Create host metrics collector
+    Connect to PostgreSQL
+    Create source handler registry
+    Return Collector service
 
 Forever:
     Get enabled sources
@@ -640,4 +669,4 @@ This file demonstrates:
 - logging
 - long-running services
 
-The main thing to remember is that `ingest.py` is a pipeline: it moves telemetry from Windows Event Logs into PostgreSQL in a structured and repeatable way.
+The main thing to remember is that `ingest.py` starts the pipeline, `collector_factory.py` builds it, `collector.py` coordinates it, and source handlers execute the telemetry workflows.

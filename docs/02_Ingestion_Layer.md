@@ -1,23 +1,42 @@
 # Ingestion Layer
 
-The ingestion layer is coordinated by `app/ingest.py`, with Windows
+The ingestion layer is coordinated by `app/collector.py`, with collector
+dependency construction handled by `app/collector_factory.py`. Windows
 Event Log access implemented in `app/windows_reader.py` and rendered
 Windows event parsing implemented in
 `app/parsers/windows_event_parser.py`. Database persistence is handled
 by `app/repository.py` using transactions controlled by the source handlers
-and collector orchestrator.
+and collector service.
 Telemetry source definitions and dispatch categories are defined in
 `app/sources.py`, and source-specific execution lives in
 `app/source_handlers.py`.
 
 ## Responsibilities
 
-### `app/ingest.py`
+### `app/collector.py`
 
 - Coordinate enabled telemetry sources.
 - Dispatch each telemetry source to the handler registered for its source kind.
 - Record collector-run status.
+- Coordinate collector-run transactions.
 - Own the polling loop.
+- Close the shared database connection during shutdown.
+
+### `app/collector_factory.py`
+
+- Load collector configuration.
+- Resolve the local hostname.
+- Construct state, reader, parser, metrics, and repository components.
+- Construct source-handler implementations.
+- Register handlers by `SourceKind`.
+- Return a fully configured `Collector`.
+
+### `app/ingest.py`
+
+- Configure process logging.
+- Construct the collector through `create_collector()`.
+- Start the polling process.
+- Handle keyboard interruption and shutdown.
 
 ### `app/health_metrics.py`
 
@@ -44,7 +63,7 @@ Telemetry source definitions and dispatch categories are defined in
 - Isolate source-specific transactions and error behavior.
 - Allow the ingestion orchestrator to dispatch sources polymorphically.
 
-Windows channel-processing logic and host metrics ingestion logic are no longer implemented directly in `app/ingest.py`. The ingestion orchestrator resolves the appropriate handler from the source kind and calls `handler.ingest(source)`.
+Windows channel-processing logic and host metrics ingestion logic are no longer implemented directly in `app/collector.py` or `app/ingest.py`. The collector resolves the appropriate handler from the source kind and calls `handler.ingest(source)`.
 
 ### `app/windows_reader.py`
 
@@ -69,12 +88,13 @@ Windows channel-processing logic and host metrics ingestion logic are no longer 
 - Persist polling results to `collector_runs`.
 - Execute SQL using the transaction supplied by the ingestion orchestrator.
 
-`TelemetryRepository` does not commit or roll back transactions. Source-level transaction boundaries live in source handlers. Collector-run transaction ownership remains in `app/ingest.py`.
+`TelemetryRepository` does not commit or roll back transactions. Source-level transaction boundaries live in source handlers. Collector-run transaction ownership remains in `app/collector.py`.
 
 ## Persistence flow
 
 ```text
 Configuration
+-> Collector Factory
 -> Source Registry
 -> Collector
 -> Source Handler
@@ -86,7 +106,7 @@ Configuration
 
 ## Host-health collection
 
-When `health_metrics` is enabled, `app/ingest.py` dispatches the source to
+When `health_metrics` is enabled, `app/collector.py` dispatches the source to
 `HostMetricsSourceHandler`. The handler requests a snapshot from
 `HostMetricsCollector`, passes that snapshot to `TelemetryRepository`, and
 commits the host metrics transaction.

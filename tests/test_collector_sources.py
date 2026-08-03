@@ -3,7 +3,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from app.ingest import Collector
+from app.collector import Collector
 from app.sources import SourceKind, TelemetrySource
 
 
