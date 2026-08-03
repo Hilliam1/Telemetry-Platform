@@ -2,7 +2,7 @@
 
 The platform uses PostgreSQL as the telemetry storage backend.
 
-## Planned Tables
+## Current Tables
 
 ### `log_events`
 
@@ -61,3 +61,28 @@ Expected fields:
 - `started_at`
 - `error_message`
 
+## Persistence Ownership
+
+Collector persistence SQL lives in `app/repository.py`.
+
+`TelemetryRepository` inserts rows into:
+
+- `log_events`
+- `process_events`
+- `host_metrics`
+- `collector_runs`
+
+`TelemetryRepository` does not commit or roll back transactions. `app/ingest.py` controls transaction boundaries so event rows and checkpoint updates remain ordered safely.
+
+## Transaction Ordering
+
+For Windows event ingestion, the safe order is:
+
+```text
+stage log and process rows
+-> commit PostgreSQL transaction
+-> update collector state
+-> save collector state file
+```
+
+This prevents the collector from advancing its checkpoint when database writes fail.

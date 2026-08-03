@@ -4,6 +4,8 @@ This document explains the Phase 3 refactor that moved direct Windows Event Log 
 
 Phase 3 is a behavior-preserving refactor. The collector still parses XML, inserts database rows, manages state checkpoints, and handles collector orchestration. The new reader only owns the Windows-specific event reading boundary.
 
+Current architecture note: later phases moved XML parsing into `app/parsers/windows_event_parser.py`, host-health collection into `app/health_metrics.py`, and collector persistence SQL into `app/repository.py`. This document explains the Phase 3 boundary as it existed when the Windows reader was extracted.
+
 ## Why This Refactor Exists
 
 Before Phase 3, `ingest.py` directly handled several Windows Event Log responsibilities:

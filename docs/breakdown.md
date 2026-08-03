@@ -279,8 +279,8 @@ It:
 2. Asks `WindowsEventReader` to read only newer events.
 3. Asks `WindowsEventParser` to convert each event from XML to Python data.
 4. Sorts events by record ID.
-5. Inserts each event into the database.
-6. Inserts process details if the event is Sysmon Event ID 1.
+5. Asks `TelemetryRepository` to stage each event for database insertion.
+6. Asks `TelemetryRepository` to stage process details if the event is Sysmon Event ID 1.
 7. Commits the database transaction.
 8. Updates the state file only after the commit succeeds.
 
@@ -292,48 +292,48 @@ sysmon:Microsoft-Windows-Sysmon/Operational
 
 That lets the collector track each channel separately.
 
-## `_insert_process_event`
+## Persistence Repository
 
 ```python
-def _insert_process_event(self, event):
+self.repository.insert_log_event(...)
+self.repository.insert_process_event(event)
 ```
 
-This method only handles Sysmon process creation events.
+`ingest.py` no longer contains the SQL insert statements for collector data.
 
-It skips everything unless:
+Database insert logic now belongs to `app/repository.py`.
+
+The repository class is called:
 
 ```python
-event["source_type"] == "sysmon"
+TelemetryRepository
 ```
 
-and:
+The collector creates it after opening the database connection:
 
 ```python
-event["event_id"] == 1
+self.conn = create_connection()
+self.repository = TelemetryRepository(self.conn)
 ```
 
-Sysmon Event ID 1 means process creation.
+The repository stages rows for these tables:
 
-The method extracts fields like:
+- `log_events`
+- `process_events`
+- `host_metrics`
+- `collector_runs`
 
-- process GUID
-- process ID
-- image path
-- command line
-- parent process
-- user
-- SHA256 hash
-- creation time
+It uses the existing database connection, but it does not call `commit()` or `rollback()`.
 
-Then it inserts those values into the `process_events` table.
+That is important because transaction ownership stays in `ingest.py`.
 
-## `_insert_event`
+## Log Event Persistence
 
 ```python
-def _insert_event(...)
+self.repository.insert_log_event(...)
 ```
 
-This inserts the general event record into the `log_events` table.
+This stages the general event record for the `log_events` table.
 
 It stores:
 
@@ -349,13 +349,58 @@ It stores:
 
 The raw event data is stored as JSON so the full event is preserved.
 
-## `_insert_collector_run`
+## Process Event Persistence
 
 ```python
-def _insert_collector_run(...)
+self.repository.insert_process_event(event)
 ```
 
-This inserts a row describing the collector run.
+This stages Sysmon process creation records for the `process_events` table.
+
+It skips events unless:
+
+```python
+event["source_type"] == "sysmon"
+```
+
+and:
+
+```python
+event["event_id"] == 1
+```
+
+Sysmon Event ID 1 means process creation.
+
+The repository extracts fields like:
+
+- process GUID
+- process ID
+- image path
+- command line
+- parent process
+- user
+- SHA256 hash
+- creation time
+
+Then it inserts those values into the `process_events` table.
+
+## Host Metric Persistence
+
+```python
+self.repository.insert_host_metrics(metrics)
+```
+
+This stages host-health snapshots for the `host_metrics` table.
+
+`HostMetricsCollector` collects the values. `TelemetryRepository` inserts them. `ingest.py` commits the transaction.
+
+## Collector Run Persistence
+
+```python
+self.repository.insert_collector_run(...)
+```
+
+This stages a row describing one collector polling cycle.
 
 It records:
 
@@ -366,6 +411,22 @@ It records:
 - error message if something failed
 
 This helps you monitor whether the collector is healthy.
+
+## Transaction Ownership
+
+`TelemetryRepository` stages SQL work, but `ingest.py` commits or rolls back.
+
+The safe Windows event ordering is:
+
+```text
+read and parse events
+stage database rows
+commit database transaction
+advance checkpoint state
+save checkpoint file
+```
+
+This prevents skipped events after a failed database transaction.
 
 ## Windows Event Parsing
 

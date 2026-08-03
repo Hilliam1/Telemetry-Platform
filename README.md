@@ -24,16 +24,37 @@ The current version focuses on Windows Event Log and Sysmon collection, PostgreS
 Windows Event Logs
         |
         v
-Collector Layer
+Windows Event Reader
         |
         v
 Parsing and Normalization
+        |
+        v
+Collector Orchestration
+        |
+        v
+Persistence Repository
         |
         v
 PostgreSQL Database
         |
         v
 FastAPI Query Service
+```
+
+Host health metrics follow a parallel path:
+
+```text
+HostMetricsCollector
+        |
+        v
+Collector Orchestration
+        |
+        v
+Persistence Repository
+        |
+        v
+PostgreSQL Database
 ```
 
 ## Target Architecture

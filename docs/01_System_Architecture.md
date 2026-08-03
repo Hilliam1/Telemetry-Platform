@@ -1,33 +1,89 @@
 # System Architecture
 
-The platform is designed as a layered telemetry pipeline.
+The platform is designed as a layered telemetry pipeline. The current codebase now separates collection, parsing, state management, host metrics, and PostgreSQL persistence into focused modules.
 
 ```text
 Windows Hosts
     |
     v
-Collector Layer
+WindowsEventReader
     |
     v
-Parsing and Normalization Layer
+WindowsEventParser
+    |
+    v
+Collector Orchestrator
+    |
+    v
+TelemetryRepository
     |
     v
 PostgreSQL Database
     |
     v
-REST API
+FastAPI Query Service
     |
     v
 Dashboard and Analysis Layer
 ```
 
-## Collector Layer
+## Collector Orchestrator
 
-The collector reads events from Windows Event Log channels such as System, Application, Security, PowerShell, Defender, Task Scheduler, and Sysmon.
+`app/ingest.py` coordinates enabled telemetry sources. It decides which sources run, asks helper modules for data, calls the repository to stage database writes, owns commit and rollback behavior, and advances checkpoints only after successful commits.
+
+The collector is still the entry point:
+
+```powershell
+py -m app.ingest
+```
+
+## Windows Event Reader
+
+`app/windows_reader.py` owns direct Windows Event Log access. It builds checkpoint-aware queries, calls `EvtQuery`, reads batches with `EvtNext`, renders events with `EvtRender`, and closes Windows query and event handles.
 
 ## Parsing and Normalization Layer
 
-Windows events are rendered as XML. The collector parses that XML into Python dictionaries and stores both raw and structured versions.
+`app/parsers/windows_event_parser.py` parses rendered Windows event XML into normalized Python dictionaries.
+
+It owns:
+
+- provider extraction
+- event ID conversion
+- record ID conversion
+- severity mapping
+- timestamp parsing
+- `EventData` conversion
+- nested `UserData` conversion
+
+## Host Metrics Layer
+
+`app/health_metrics.py` owns local host-health collection through optional `psutil` support. It returns normalized CPU, memory, disk, and boot-time values.
+
+## Persistence Layer
+
+`app/repository.py` owns collector SQL insert operations for:
+
+- `log_events`
+- `process_events`
+- `host_metrics`
+- `collector_runs`
+
+The repository does not commit or roll back. Transaction ownership remains in `app/ingest.py`.
+
+## State Layer
+
+`app/state.py` owns checkpoint loading, validation, monotonic record ID updates, and atomic state-file persistence.
+
+The critical event-ingestion order is:
+
+```text
+read events
+-> parse events
+-> stage database rows
+-> commit PostgreSQL transaction
+-> advance checkpoint
+-> save checkpoint
+```
 
 ## Database Layer
 
@@ -35,9 +91,8 @@ PostgreSQL stores raw events, process events, host metrics, and collector run re
 
 ## API Layer
 
-The planned API layer will expose telemetry through queryable endpoints for dashboards, search, and future detection workflows.
+`app/api.py` exposes queryable FastAPI endpoints for logs, event counts, search, and host metrics.
 
 ## Dashboard Layer
 
-The planned dashboard will show event trends, host activity, process creation, collector health, and investigation views.
-
+The dashboard layer is planned. It will show event trends, host activity, process creation, collector health, and investigation views.
