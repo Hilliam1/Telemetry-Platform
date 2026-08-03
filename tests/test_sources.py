@@ -1,5 +1,6 @@
 import pytest
 
+from app.config import DEFAULT_SOURCES
 from app.sources import (
     SOURCE_REGISTRY,
     SourceKind,
@@ -57,15 +58,4 @@ def test_unknown_source_raises_clear_error():
 
 
 def test_registry_contains_all_default_sources():
-    expected = {
-        "windows_system",
-        "windows_application",
-        "windows_security",
-        "sysmon",
-        "powershell",
-        "defender",
-        "task_scheduler",
-        "health_metrics",
-    }
-
-    assert set(SOURCE_REGISTRY) == expected
+    assert set(SOURCE_REGISTRY) == set(DEFAULT_SOURCES)
