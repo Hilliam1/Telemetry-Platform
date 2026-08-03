@@ -3,16 +3,16 @@
 The ingestion layer is coordinated by `app/ingest.py`, with Windows
 Event Log access implemented in `app/windows_reader.py` and rendered
 Windows event parsing implemented in
-`app/parsers/windows_event_parser.py`.
+`app/parsers/windows_event_parser.py`. Database persistence is handled
+by `app/repository.py` using the transaction controlled by `app/ingest.py`.
 
 ## Responsibilities
 
 ### `app/ingest.py`
 
 - Coordinate enabled telemetry sources.
-- Insert normalized event records.
-- Extract Sysmon process creation events.
-- Persist host-health metric records.
+- Decide which telemetry records should be persisted.
+- Commit and roll back database transactions.
 - Commit successful ingestion before advancing collector state.
 
 ### `app/health_metrics.py`
@@ -38,6 +38,28 @@ Windows event parsing implemented in
 - Normalize provider, event ID, record ID, severity, timestamp, and computer fields.
 - Convert `EventData` and `UserData` into dictionaries.
 - Build the normalized event message and raw event payload.
+
+### `app/repository.py`
+
+- Persist normalized events to `log_events`.
+- Persist Sysmon process creation records to `process_events`.
+- Persist host snapshots to `host_metrics`.
+- Persist polling results to `collector_runs`.
+- Execute SQL using the transaction supplied by the ingestion orchestrator.
+
+`TelemetryRepository` does not commit or roll back transactions. Transaction ownership remains in `app/ingest.py`.
+
+## Persistence flow
+
+```text
+WindowsEventReader
+-> WindowsEventParser
+-> Collector orchestration
+-> TelemetryRepository
+-> PostgreSQL
+-> commit
+-> checkpoint update
+```
 
 ## Host-health collection
 

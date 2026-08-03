@@ -18,6 +18,7 @@ from app.config import (
 from app.database import create_connection
 from app.health_metrics import HostMetricsCollector
 from app.parsers.windows_event_parser import WindowsEventParser
+from app.repository import TelemetryRepository
 from app.state import CollectorState
 from app.windows_reader import WindowsEventReader
 
@@ -54,6 +55,7 @@ class Collector:
             hostname=self.hostname
         )
         self.conn = create_connection()
+        self.repository = TelemetryRepository(self.conn)
 
     def close(self):
         self.conn.close()
@@ -85,28 +87,9 @@ class Collector:
         if not metrics.get("psutil_available"):
             return 0
 
-        with self.conn.cursor() as cur:
-            cur.execute(
-                """
-                INSERT INTO host_metrics (
-                    host_name,
-                    cpu_percent,
-                    memory_percent,
-                    disk_percent,
-                    boot_time
-                )
-                VALUES (%s,%s,%s,%s,%s)
-                """,
-                (
-                    metrics["host"],
-                    metrics["cpu_percent"],
-                    metrics["memory_percent"],
-                    metrics["disk_percent"],
-                    metrics["boot_time"],
-                ),
-            )
-
+        self.repository.insert_host_metrics(metrics)
         self.conn.commit()
+
         return 1
 
     def run_forever(self):
@@ -135,7 +118,8 @@ class Collector:
             error_message = str(exc)
             LOG.exception("Collector run failed.")
 
-        self._insert_collector_run(
+        self.repository.insert_collector_run(
+            source_host=self.hostname,
             status=status,
             events_inserted=total,
             started_at=started_at,
@@ -198,7 +182,7 @@ class Collector:
         for event in parsed_events:
             event["source_type"] = source_type
 
-            self._insert_event(
+            self.repository.insert_log_event(
                 source_host=event["computer"] or self.hostname,
                 source_type=source_type,
                 provider_name=event["provider"],
@@ -213,7 +197,7 @@ class Collector:
                 ),
             )
 
-            self._insert_process_event(event)
+            self.repository.insert_process_event(event)
 
             inserted += 1
             highest_record_id = event["record_id"]
@@ -229,123 +213,6 @@ class Collector:
             self.state.save()
 
         return inserted
-
-    def _insert_process_event(self, event):
-        raw = event["raw"]
-        data = raw.get("event_data", {})
-
-        if event["source_type"] != "sysmon":
-            return
-
-        if event["event_id"] != 1:
-            return
-
-        hashes = data.get("Hashes", "")
-        sha256 = ""
-
-        for item in hashes.split(","):
-            if item.startswith("SHA256="):
-                sha256 = item.replace("SHA256=", "")
-
-        with self.conn.cursor() as cur:
-            cur.execute(
-                """
-                INSERT INTO process_events (
-                    source_host,
-                    process_guid,
-                    process_id,
-                    image,
-                    command_line,
-                    parent_image,
-                    parent_command_line,
-                    user_name,
-                    sha256,
-                    created_at
-                )
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-                """,
-                (
-                    event["computer"],
-                    data.get("ProcessGuid", ""),
-                    int(data.get("ProcessId", 0) or 0),
-                    data.get("Image", ""),
-                    data.get("CommandLine", ""),
-                    data.get("ParentImage", ""),
-                    data.get("ParentCommandLine", ""),
-                    data.get("User", ""),
-                    sha256,
-                    event["time_created"],
-                ),
-            )
-
-    def _insert_collector_run(
-        self,
-        status,
-        events_inserted,
-        started_at,
-        error_message=None,
-    ):
-        with self.conn.cursor() as cur:
-            cur.execute(
-                """
-                INSERT INTO collector_runs (
-                    source_host,
-                    status,
-                    events_inserted,
-                    started_at,
-                    error_message
-                )
-                VALUES (%s,%s,%s,%s,%s)
-                """,
-                (
-                    self.hostname,
-                    status,
-                    events_inserted,
-                    started_at,
-                    error_message,
-                ),
-            )
-
-    def _insert_event(
-        self,
-        source_host,
-        source_type,
-        provider_name,
-        event_id,
-        event_record_id,
-        severity,
-        time_created,
-        message,
-        raw_data,
-    ):
-        with self.conn.cursor() as cur:
-            cur.execute(
-                """
-                INSERT INTO log_events (
-                    source_host,
-                    source_type,
-                    provider_name,
-                    event_id,
-                    event_record_id,
-                    severity,
-                    time_created,
-                    message,
-                    raw_data
-                )
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
-                """,
-                (
-                    source_host,
-                    source_type,
-                    provider_name,
-                    event_id,
-                    event_record_id,
-                    severity,
-                    time_created,
-                    message,
-                    raw_data,
-                ),
-            )
 
 
 def main():

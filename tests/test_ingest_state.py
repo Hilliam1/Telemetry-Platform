@@ -38,7 +38,20 @@ class FakeParser:
         return event_xml
 
 
-def test_state_does_not_advance_when_database_commit_fails(monkeypatch):
+class FakeRepository:
+    def __init__(self):
+        self.log_events = []
+        self.process_events = []
+
+    def insert_log_event(self, **kwargs):
+        self.log_events.append(kwargs)
+
+    def insert_process_event(self, event):
+        self.process_events.append(event)
+        return False
+
+
+def test_state_does_not_advance_when_database_commit_fails():
     collector = Collector.__new__(Collector)
     collector.hostname = "test-host"
     collector.settings = SimpleNamespace(batch_size=10)
@@ -70,9 +83,7 @@ def test_state_does_not_advance_when_database_commit_fails(monkeypatch):
 
     collector.reader = FakeReader(parsed_events)
     collector.parser = FakeParser()
-
-    monkeypatch.setattr(collector, "_insert_event", lambda **kwargs: None)
-    monkeypatch.setattr(collector, "_insert_process_event", lambda event: None)
+    collector.repository = FakeRepository()
 
     with pytest.raises(RuntimeError, match="commit failed"):
         collector._ingest_channel("sysmon", "channel")
