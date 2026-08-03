@@ -34,6 +34,7 @@ The project starts with Windows telemetry because Windows Event Logs and Sysmon 
 - `app/parsers/windows_event_parser.py` parses and normalizes Windows event XML.
 - `app/health_metrics.py` collects host-health snapshots.
 - `app/repository.py` persists collector records using the orchestrator-controlled transaction.
+- `app/sources.py` defines supported telemetry sources and dispatch categories.
 - `app/state.py` manages checkpoint state.
 - `app/api.py` exposes query endpoints.
 

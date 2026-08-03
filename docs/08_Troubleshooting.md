@@ -342,6 +342,37 @@ py -u -m app.ingest
 
 If health metrics inserts but Windows events do not, focus on Windows channel access and checkpoints.
 
+## Unknown Collector Source
+
+Symptom:
+
+```text
+Unknown telemetry source 'not_a_real_source'
+```
+
+Cause:
+
+`COLLECTOR_SOURCES` contains a name that is not defined in `app/sources.py`.
+
+Check supported sources:
+
+```powershell
+py -c "from app.sources import SOURCE_REGISTRY; print(', '.join(sorted(SOURCE_REGISTRY)))"
+```
+
+Fix the source list:
+
+```powershell
+$env:COLLECTOR_SOURCES="windows_system,sysmon,health_metrics"
+py -u -m app.ingest
+```
+
+Restore defaults:
+
+```powershell
+Remove-Item Env:COLLECTOR_SOURCES
+```
+
 ## API Starts But Returns No Data
 
 Start the API:

@@ -14,6 +14,7 @@ the details:
 - `app/windows_reader.py` reads Windows Event Log XML.
 - `app/parsers/windows_event_parser.py` parses and normalizes Windows event XML.
 - `app/health_metrics.py` collects CPU, memory, disk, and boot-time metrics.
+- `app/sources.py` defines supported telemetry sources and their dispatch categories.
 - `app/state.py` saves collector checkpoints.
 
 Its job is to:
@@ -59,6 +60,7 @@ Application imports:
 - `WindowsEventReader` reads rendered XML from Windows Event Logs.
 - `WindowsEventParser` converts rendered XML into normalized event dictionaries.
 - `HostMetricsCollector` collects host health metrics if `psutil` is available.
+- `get_sources()` resolves configured source names into explicit source definitions.
 
 ## Configuration
 
@@ -72,17 +74,33 @@ That keeps environment-variable parsing out of `ingest.py`.
 
 For example, if `COLLECTOR_POLL_SECONDS` is missing, the collector waits 5 seconds between runs.
 
-## Event Channels
+## Source Registry
 
-`EVENT_CHANNELS` maps friendly source names to real Windows Event Log channel names.
+Source definitions now live in `app/sources.py`.
+
+That module maps friendly source names to source categories.
+
+Windows event sources also include real Windows Event Log channel names.
 
 Example:
 
 ```python
-"sysmon": ["Microsoft-Windows-Sysmon/Operational"]
+TelemetrySource(
+    name="sysmon",
+    kind=SourceKind.WINDOWS_EVENT,
+    channels=("Microsoft-Windows-Sysmon/Operational",),
+)
 ```
 
 That means the `sysmon` source reads from the Sysmon operational log.
+
+The `health_metrics` source has a different kind:
+
+```python
+SourceKind.HOST_METRICS
+```
+
+That tells the collector to use the host-health workflow instead of the Windows Event Log workflow.
 
 ## Default Sources
 
@@ -253,13 +271,49 @@ Example:
 COLLECTOR_SOURCES=sysmon,powershell,health_metrics
 ```
 
-## `_ingest_event_channels`
+`ingest.py` then asks `app/sources.py` to resolve those names into `TelemetrySource` objects.
+
+If a source name is wrong, the registry raises a readable error instead of letting `getattr()` fail later.
+
+## `_ingest_source`
 
 ```python
-def _ingest_event_channels(self, source_type):
+def _ingest_source(self, source):
 ```
 
-This method finds the Windows Event Log channels for a source type and ingests each one.
+This method explicitly dispatches each source by source kind.
+
+If the source kind is:
+
+```python
+SourceKind.WINDOWS_EVENT
+```
+
+the collector runs the Windows Event Log workflow.
+
+If the source kind is:
+
+```python
+SourceKind.HOST_METRICS
+```
+
+the collector runs the host-health workflow.
+
+This replaced the older dynamic pattern:
+
+```python
+getattr(self, f"ingest_{source}")()
+```
+
+The new registry is easier to validate and safer to expand.
+
+## `_ingest_event_source`
+
+```python
+def _ingest_event_source(self, source):
+```
+
+This method reads the Windows Event Log channels configured on a `TelemetrySource`.
 
 It also handles permission errors.
 

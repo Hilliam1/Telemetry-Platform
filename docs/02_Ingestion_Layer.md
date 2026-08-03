@@ -5,6 +5,8 @@ Event Log access implemented in `app/windows_reader.py` and rendered
 Windows event parsing implemented in
 `app/parsers/windows_event_parser.py`. Database persistence is handled
 by `app/repository.py` using the transaction controlled by `app/ingest.py`.
+Telemetry source definitions and dispatch categories are defined in
+`app/sources.py`.
 
 ## Responsibilities
 
@@ -23,6 +25,14 @@ by `app/repository.py` using the transaction controlled by `app/ingest.py`.
 - Collect system-drive utilization.
 - Collect host boot time.
 - Return a normalized host-health snapshot.
+
+### `app/sources.py`
+
+- Define supported telemetry sources.
+- Associate source names with source categories.
+- Associate Windows sources with their Event Log channels.
+- Validate names supplied through `COLLECTOR_SOURCES`.
+- Provide explicit source definitions to the ingestion orchestrator.
 
 ### `app/windows_reader.py`
 
@@ -71,7 +81,9 @@ that snapshot to `TelemetryRepository`, which inserts it into the
 
 ## Source Control
 
-Enabled sources are controlled by the `COLLECTOR_SOURCES` environment variable. If the variable is not set, the collector uses the default source list.
+Enabled source names are loaded from `COLLECTOR_SOURCES`. If the variable is not set, the collector uses the default source list from `app/config.py`.
+
+`app/sources.py` resolves source names into explicit source definitions. Unknown names produce a configuration error listing the supported sources.
 
 ## State Tracking
 

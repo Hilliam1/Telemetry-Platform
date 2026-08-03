@@ -6,6 +6,9 @@ The platform is designed as a layered telemetry pipeline. The current codebase n
 Windows Hosts
     |
     v
+Source Registry
+    |
+    v
 WindowsEventReader
     |
     v
@@ -36,6 +39,12 @@ The collector is still the entry point:
 ```powershell
 py -m app.ingest
 ```
+
+## Source Registry
+
+`app/sources.py` defines the supported telemetry sources. It maps source names to source categories and, for Windows event sources, to one or more Event Log channels.
+
+The registry replaces dynamic `getattr()` dispatch with explicit source definitions. Unknown source names now raise a readable configuration error that lists supported sources.
 
 ## Windows Event Reader
 

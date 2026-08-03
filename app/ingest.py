@@ -19,23 +19,15 @@ from app.database import create_connection
 from app.health_metrics import HostMetricsCollector
 from app.parsers.windows_event_parser import WindowsEventParser
 from app.repository import TelemetryRepository
+from app.sources import (
+    SourceKind,
+    TelemetrySource,
+    get_sources,
+)
 from app.state import CollectorState
 from app.windows_reader import WindowsEventReader
 
 LOG = logging.getLogger("sysmon_collector")
-
-EVENT_CHANNELS = {
-    "windows_system": ["System"],
-    "windows_application": ["Application"],
-    "windows_security": ["Security"],
-    "sysmon": ["Microsoft-Windows-Sysmon/Operational"],
-    "powershell": [
-        "Windows PowerShell",
-        "Microsoft-Windows-PowerShell/Operational",
-    ],
-    "defender": ["Microsoft-Windows-Windows Defender/Operational"],
-    "task_scheduler": ["Microsoft-Windows-TaskScheduler/Operational"],
-}
 
 
 class Collector:
@@ -51,27 +43,6 @@ class Collector:
 
     def close(self):
         self.conn.close()
-
-    def ingest_windows_system(self):
-        return self._ingest_event_channels("windows_system")
-
-    def ingest_windows_application(self):
-        return self._ingest_event_channels("windows_application")
-
-    def ingest_windows_security(self):
-        return self._ingest_event_channels("windows_security")
-
-    def ingest_sysmon(self):
-        return self._ingest_event_channels("sysmon")
-
-    def ingest_powershell(self):
-        return self._ingest_event_channels("powershell")
-
-    def ingest_defender(self):
-        return self._ingest_event_channels("defender")
-
-    def ingest_task_scheduler(self):
-        return self._ingest_event_channels("task_scheduler")
 
     def ingest_health_metrics(self):
         metrics = self.metrics_collector.collect()
@@ -102,7 +73,7 @@ class Collector:
 
         try:
             for source in self._enabled_sources():
-                total += getattr(self, f"ingest_{source}")()
+                total += self._ingest_source(source)
 
         except Exception as exc:
             self.conn.rollback()
@@ -121,11 +92,29 @@ class Collector:
         self.conn.commit()
         return total
 
-    def _ingest_event_channels(self, source_type):
+    def _ingest_source(
+        self,
+        source: TelemetrySource,
+    ) -> int:
+        if source.kind is SourceKind.WINDOWS_EVENT:
+            return self._ingest_event_source(source)
+
+        if source.kind is SourceKind.HOST_METRICS:
+            return self.ingest_health_metrics()
+
+        raise ValueError(f"Unsupported source kind: {source.kind!r}")
+
+    def _ingest_event_source(
+        self,
+        source: TelemetrySource,
+    ) -> int:
         inserted = 0
-        for channel in EVENT_CHANNELS[source_type]:
+        for channel in source.channels:
             try:
-                inserted += self._ingest_channel(source_type, channel)
+                inserted += self._ingest_channel(
+                    source.name,
+                    channel,
+                )
             except pywintypes.error as exc:
                 self.conn.rollback()
                 if exc.winerror == 5:
@@ -133,7 +122,7 @@ class Collector:
                         "Access denied reading %s. Run elevated, add the collector account "
                         "to Event Log Readers, or remove %s from COLLECTOR_SOURCES.",
                         channel,
-                        source_type,
+                        source.name,
                     )
                     continue
                 LOG.exception("Failed to ingest channel %s", channel)
@@ -142,11 +131,16 @@ class Collector:
                 LOG.exception("Failed to ingest channel %s", channel)
         return inserted
 
-    def _enabled_sources(self):
-        if self.settings.enabled_sources is None:
-            return DEFAULT_SOURCES
+    def _enabled_sources(
+        self,
+    ) -> tuple[TelemetrySource, ...]:
+        source_names = (
+            DEFAULT_SOURCES
+            if self.settings.enabled_sources is None
+            else self.settings.enabled_sources
+        )
 
-        return self.settings.enabled_sources
+        return get_sources(source_names)
 
     def _ingest_channel(self, source_type, channel):
         last_record_id = self.state.get_last_record_id(

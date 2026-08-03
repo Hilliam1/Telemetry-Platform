@@ -24,6 +24,9 @@ The current version focuses on Windows Event Log and Sysmon collection, PostgreS
 Windows Event Logs
         |
         v
+Source Registry
+        |
+        v
 Windows Event Reader
         |
         v
@@ -90,6 +93,7 @@ Telemetry-Platform/
 |   |-- health_metrics.py
 |   |-- ingest.py
 |   |-- repository.py
+|   |-- sources.py
 |   |-- state.py
 |   |-- windows_reader.py
 |   `-- parsers/
