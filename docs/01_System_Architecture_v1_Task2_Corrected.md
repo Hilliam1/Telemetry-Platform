@@ -1,8 +1,10 @@
 # Telemetry Platform Architecture Specification
 
-**Document:** `docs/01_System_Architecture.md`
+**Specification:** `docs/01_System_Architecture.md`
+**Version:** 0.1
 **Status:** Draft for architecture review
-**Baseline:** Phase 9 modular collector architecture
+**Implements:** Platform Phase 9
+**Last Reviewed:** August 2026
 **Purpose:** Define the current system architecture, governing engineering principles, and planned evolution of the Telemetry Platform.
 
 ---
@@ -775,18 +777,27 @@ A self-hosted security and operational intelligence assistant for small organiza
 
 ## 15. Architectural Decision Record Index
 
-Recommended ADRs:
+Architecture Decision Records live in `docs/adr/`.
 
-1. Why PostgreSQL
-2. Why FastAPI
-3. Why EventRecordID checkpointing
-4. Why the repository does not own transactions
-5. Why source handlers own source-specific execution
-6. Why the collector uses dependency injection
-7. Why AI is downstream from deterministic analysis
-8. Why automated response is separated from reasoning
-9. Why the product supports rules-only operation
-10. Why the architecture begins single-tenant
+Current ADRs:
+
+| ADR | Decision |
+|---|---|
+| [`0001-why-postgresql.md`](adr/0001-why-postgresql.md) | Use PostgreSQL for telemetry storage |
+| [`0002-why-fastapi.md`](adr/0002-why-fastapi.md) | Use FastAPI for the API layer |
+| [`0003-why-eventrecordid.md`](adr/0003-why-eventrecordid.md) | Track `EventRecordID` for collector state |
+| [`0004-why-multi-table-design.md`](adr/0004-why-multi-table-design.md) | Use multiple tables for raw and structured telemetry |
+| [`0005-why-rest-before-dashboard.md`](adr/0005-why-rest-before-dashboard.md) | Build the REST API before the dashboard |
+| [`0006-why-repository-pattern.md`](adr/0006-why-repository-pattern.md) | Keep SQL persistence in a repository layer |
+| [`0007-why-source-handler-architecture.md`](adr/0007-why-source-handler-architecture.md) | Use source handlers for source-specific execution |
+| [`0008-why-ai-after-correlation.md`](adr/0008-why-ai-after-correlation.md) | Keep AI downstream from deterministic telemetry analysis |
+
+Planned ADRs:
+
+- Why the collector uses dependency injection.
+- Why automated response is separated from reasoning.
+- Why the product supports rules-only operation.
+- Why the architecture begins single-tenant.
 
 ---
 
