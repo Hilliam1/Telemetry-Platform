@@ -24,13 +24,13 @@ The current version focuses on Windows Event Log and Sysmon collection, PostgreS
 Windows Event Logs
         |
         v
-Source Registry
-        |
-        v
 Collector Factory
         |
         v
 Collector Service
+        |
+        v
+Source Registry
         |
         v
 Source Handler Registry
