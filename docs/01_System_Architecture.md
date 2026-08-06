@@ -5,7 +5,7 @@
 | Specification | `docs/01_System_Architecture.md` |
 | Version | 0.2 |
 | Status | Draft for architecture review |
-| Implements | Platform Phase 10 |
+| Implements | Platform Phase 11 |
 | Last Reviewed | August 2026 |
 | Purpose | Define the current system architecture, governing engineering principles, and planned evolution of the Telemetry Platform. |
 
@@ -52,7 +52,7 @@ Future versions are expected to add event correlation, detection rules, risk sco
 
 ### 1.3 Current Scope
 
-At the Phase 10 baseline, the platform includes:
+At the Phase 11 baseline, the platform includes:
 
 - Windows Event Log collection
 - host-health metric collection
@@ -63,11 +63,11 @@ At the Phase 10 baseline, the platform includes:
 - explicit source registration
 - polymorphic source handlers
 - dependency injection through a collector factory
-- deterministic in-memory detection models, rules, and evaluation
+- deterministic detection models, rules, evaluation, and finding persistence
 - unit testing for major components
 - technical repository documentation
 
-The platform intentionally does not yet include a production dashboard, persisted findings, correlation engine, AI reasoning layer, or automated response engine. The Phase 10 detection foundation is isolated and is not yet invoked by ingestion or exposed through the API.
+The platform intentionally does not yet include a production dashboard, correlation engine, AI reasoning layer, or automated response engine. Phase 11 invokes deterministic detection during Windows event ingestion and persists findings, but findings are not yet exposed through the API.
 
 ### 1.4 Long-Term Vision
 
@@ -105,7 +105,7 @@ Each module should own one primary responsibility.
 | `app/collector.py` | Polling and run orchestration |
 | `app/sources.py` | Source definitions |
 | `app/source_handlers.py` | Source-specific execution |
-| `app/detection/` | Deterministic detection models, rules, and evaluation |
+| `app/detection/` | Deterministic detection models, rules, evaluation, and finding persistence |
 | `app/windows_reader.py` | Windows Event Log access |
 | `app/parsers/windows_event_parser.py` | XML parsing and normalization |
 | `app/health_metrics.py` | Host metric collection |
@@ -147,6 +147,8 @@ flowchart TD
  C --> F[Windows Event Parser]
  C --> G[State Manager]
  C --> H[Telemetry Repository]
+ C --> J[Detection Engine]
+ J --> K[Detection Repository]
  D --> I[Host Metrics Collector]
  D --> H
 ```
@@ -228,12 +230,15 @@ flowchart TD
  G --> J[Windows Event Parser]
  J --> G
  G --> K[Telemetry Repository]
+ G --> R[Detection Engine]
+ R --> S[Detection Repository]
 
  H --> L[Host Metrics Collector]
  L --> H
  H --> K
 
  K --> M[(PostgreSQL)]
+ S --> M
  M --> N[FastAPI Query Service]
  N --> O[Planned Dashboard and Clients]
 
@@ -307,7 +312,7 @@ Implements Windows and host-metric workflows, channel isolation, source-level tr
 
 ### 4.6 `app/detection/`
 
-Defines deterministic detection models, built-in rules, and in-memory rule evaluation. The detection package is not yet invoked by the collector, persisted to PostgreSQL, or exposed through the API.
+Defines deterministic detection models, built-in rules, in-memory rule evaluation, and finding persistence. The detection engine is invoked by the Windows event handler, while finding API exposure and correlation remain future work.
 
 ### 4.7 `app/windows_reader.py`
 
@@ -346,7 +351,9 @@ sequenceDiagram
  participant State
  participant Reader
  participant Parser
- participant Repo as Repository
+ participant Repo as Telemetry Repository
+ participant Engine as Detection Engine
+ participant Findings as Detection Repository
  participant DB as PostgreSQL
  Collector->>Handler: ingest(source)
  Handler->>State: get_last_record_id()
@@ -358,7 +365,11 @@ sequenceDiagram
  Parser-->>Handler: normalized event
  Handler->>Repo: insert_log_event()
  Handler->>Repo: insert_process_event()
+ Handler->>Engine: evaluate(event)
+ Engine-->>Handler: zero or more findings
+ Handler->>Findings: insert_findings()
  Repo->>DB: stage INSERT statements
+ Findings->>DB: stage finding INSERT statements
  end
  Handler->>DB: COMMIT
  Handler->>State: update_record_id()
@@ -429,6 +440,7 @@ PostgreSQL is the persistent memory of the platform. It was selected for ACID tr
 | `process_events` | Structured Sysmon process creation telemetry |
 | `host_metrics` | Periodic host-health snapshots |
 | `collector_runs` | Collector operational history |
+| `detection_findings` | Durable deterministic detection findings |
 
 ### 6.2 Logical ER Model
 
@@ -478,6 +490,20 @@ erDiagram
  datetime started_at
  datetime finished_at
  string error_message
+ }
+ DETECTION_FINDINGS {
+ uuid finding_uuid
+ string rule_id
+ int rule_version
+ string title
+ string severity
+ string source_host
+ string source_type
+ int event_id
+ int event_record_id
+ datetime event_time
+ datetime evaluated_at
+ string evidence
  }
 ```
 
@@ -664,7 +690,7 @@ flowchart TD
 
 ## 11. Detection and Correlation Architecture
 
-> **Implementation status:** Phase 10 implements a deterministic in-memory detection foundation. Finding persistence, correlation, alerting, risk scoring, and API exposure are future-state designs.
+> **Implementation status:** Phase 11 implements deterministic detection evaluation during Windows event ingestion and persists findings to PostgreSQL. Correlation, alerting, risk scoring, and API exposure are future-state designs.
 
 
 ```mermaid
@@ -677,7 +703,7 @@ flowchart TD
  F --> G[Incidents]
 ```
 
-Current Phase 10 components include deterministic detection models, built-in PowerShell-focused rules, and an in-memory evaluation engine. Planned components include finding persistence, a detection rule registry, temporal correlation engine, asset context service, user context service, risk scorer, alert repository, incident service, and suppression framework.
+Current Phase 11 components include deterministic detection models, built-in PowerShell-focused rules, an in-memory evaluation engine, and a detection repository that persists findings in the same transaction as their source events. Planned components include a detection rule registry, temporal correlation engine, asset context service, user context service, risk scorer, alert repository, incident service, and suppression framework.
 
 Detection principles:
 
@@ -693,7 +719,7 @@ Detection principles:
 
 ## 12. Planned AI and Reasoning Architecture
 
-> **Implementation status:** Future-state design. AI reasoning, RAG, and recommendation services are not implemented in the Phase 10 baseline.
+> **Implementation status:** Future-state design. AI reasoning, RAG, and recommendation services are not implemented in the Phase 11 baseline.
 
 
 ```mermaid
@@ -780,7 +806,8 @@ A self-hosted security and operational intelligence assistant for small organiza
 | Phase 8 | Polymorphic source handlers introduced |
 | Phase 9 | Collector service, factory, and thin entry point introduced |
 | Phase 10 | Deterministic in-memory detection foundation introduced |
-| Phase 11+ | Detection persistence, correlation, product hardening, and intelligence layers |
+| Phase 11 | Deterministic findings persisted with source event transactions |
+| Phase 12+ | Correlation, product hardening, and intelligence layers |
 
 ---
 

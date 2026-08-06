@@ -54,6 +54,17 @@ class FakeRepository:
         return False
 
 
+class FakeDetectionEngine:
+    def evaluate(self, event):
+        del event
+        return ()
+
+
+class FakeDetectionRepository:
+    def insert_findings(self, findings):
+        return len(tuple(findings))
+
+
 def test_state_does_not_advance_when_database_commit_fails():
     parsed_events = [
         {
@@ -83,6 +94,8 @@ def test_state_does_not_advance_when_database_commit_fails():
     handler = WindowsEventSourceHandler(
         conn=conn,
         repository=FakeRepository(),
+        detection_engine=FakeDetectionEngine(),
+        detection_repository=FakeDetectionRepository(),
         reader=FakeReader(parsed_events),
         parser=FakeParser(),
         state=state,

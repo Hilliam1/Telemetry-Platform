@@ -18,6 +18,7 @@ modules:
 - `app/health_metrics.py` collects CPU, memory, disk, and boot-time metrics.
 - `app/sources.py` defines supported telemetry sources and their dispatch categories.
 - `app/source_handlers.py` runs source-specific ingestion workflows.
+- `app/detection/` evaluates deterministic rules and persists findings.
 - `app/state.py` saves collector checkpoints.
 
 The full collector system:
@@ -34,7 +35,7 @@ The full collector system:
 The pipeline looks like this:
 
 ```text
-Windows Event Logs -> XML -> Python dictionary -> PostgreSQL tables
+Windows Event Logs -> XML -> Python dictionary -> detection findings -> PostgreSQL tables
 Host metrics -> Python dictionary -> PostgreSQL table
 ```
 
@@ -398,6 +399,7 @@ The repository stages rows for these tables:
 - `process_events`
 - `host_metrics`
 - `collector_runs`
+- `detection_findings`
 
 It uses the existing database connection, but it does not call `commit()` or `rollback()`.
 
@@ -433,6 +435,23 @@ self.repository.insert_process_event(event)
 ```
 
 This stages Sysmon process creation records for the `process_events` table.
+
+### Detection Findings
+
+After staging the raw log event and any Sysmon process row, the Windows handler
+evaluates the normalized event:
+
+```python
+findings = self.detection_engine.evaluate(event)
+self.detection_repository.insert_findings(findings)
+```
+
+`DetectionEngine` returns zero or more findings. `DetectionRepository` stages
+those findings for the `detection_findings` table.
+
+These finding rows use the same source transaction as the log and process rows.
+That means a finding insert failure rolls back the whole channel transaction and
+the collector checkpoint does not move forward.
 
 It skips events unless:
 

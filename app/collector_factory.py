@@ -7,6 +7,9 @@ import socket
 from app.collector import Collector
 from app.config import load_collector_settings
 from app.database import create_connection
+from app.detection.engine import DetectionEngine
+from app.detection.repository import DetectionRepository
+from app.detection.rules import BUILTIN_RULES
 from app.health_metrics import HostMetricsCollector
 from app.parsers.windows_event_parser import WindowsEventParser
 from app.repository import TelemetryRepository
@@ -35,10 +38,14 @@ def create_collector() -> Collector:
 
     try:
         repository = TelemetryRepository(conn)
+        detection_repository = DetectionRepository(conn)
+        detection_engine = DetectionEngine(BUILTIN_RULES)
         source_handlers: dict[SourceKind, SourceHandler] = {
             SourceKind.WINDOWS_EVENT: WindowsEventSourceHandler(
                 conn=conn,
                 repository=repository,
+                detection_engine=detection_engine,
+                detection_repository=detection_repository,
                 reader=reader,
                 parser=parser,
                 state=state,
