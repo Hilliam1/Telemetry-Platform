@@ -3,6 +3,8 @@ from unittest.mock import Mock, patch
 import pytest
 
 from app.collector_factory import create_collector
+from app.detection.engine import DetectionEngine
+from app.detection.repository import DetectionRepository
 from app.sources import SourceKind
 
 
@@ -55,6 +57,8 @@ def test_factory_constructs_collector(
 
     collector_kwargs = mock_collector.call_args.kwargs
     handlers = collector_kwargs["source_handlers"]
+    windows_handler_kwargs = mock_windows_handler.call_args.kwargs
+    metrics_handler_kwargs = mock_metrics_handler.call_args.kwargs
 
     assert collector_kwargs["hostname"] == "HOST-01"
     assert collector_kwargs["settings"] is settings
@@ -62,6 +66,16 @@ def test_factory_constructs_collector(
     assert collector_kwargs["repository"] is mock_repository.return_value
     assert handlers[SourceKind.WINDOWS_EVENT] is mock_windows_handler.return_value
     assert handlers[SourceKind.HOST_METRICS] is mock_metrics_handler.return_value
+    assert isinstance(
+        windows_handler_kwargs["detection_engine"],
+        DetectionEngine,
+    )
+    assert isinstance(
+        windows_handler_kwargs["detection_repository"],
+        DetectionRepository,
+    )
+    assert "detection_engine" not in metrics_handler_kwargs
+    assert "detection_repository" not in metrics_handler_kwargs
 
 
 @patch(

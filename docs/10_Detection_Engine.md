@@ -2,11 +2,13 @@
 
 ## Current Status
 
-Phase 10 introduces a deterministic, in-memory detection foundation.
+Phase 10 introduced a deterministic, in-memory detection foundation.
 
 The detection subsystem evaluates normalized event dictionaries like the ones
-produced by `WindowsEventParser`. It does not read Windows Event Logs, query
-PostgreSQL, update collector state, persist findings, or expose API routes.
+produced by `WindowsEventParser`. Phase 11 connects that engine to the Windows
+ingestion path and persists findings through `DetectionRepository`. The engine
+itself still does not read Windows Event Logs, query PostgreSQL, update
+collector state, or expose API routes.
 
 ## Package Layout
 
@@ -15,6 +17,7 @@ app/detection/
 |-- __init__.py
 |-- engine.py
 |-- models.py
+|-- repository.py
 `-- rules.py
 ```
 
@@ -111,8 +114,6 @@ Expected result: two findings.
 
 ## Current Limitations
 
-- Findings are not persisted.
-- The ingestion pipeline does not yet invoke the engine.
 - No correlation is implemented.
 - No risk aggregation is implemented.
 - No API routes expose findings.
@@ -125,5 +126,5 @@ Run:
 ```powershell
 py -m pytest -v
 py -m compileall app tests
-py -m ruff check app\detection tests\test_detection_models.py tests\test_detection_rules.py tests\test_detection_engine.py
+py -m ruff check app\detection app\source_handlers.py app\collector_factory.py tests\test_detection_models.py tests\test_detection_rules.py tests\test_detection_engine.py tests\test_detection_repository.py tests\test_detection_integration.py tests\test_source_handlers.py tests\test_collector_factory.py
 ```

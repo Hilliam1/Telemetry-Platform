@@ -10,6 +10,8 @@ from typing import Any
 import pywintypes
 from psycopg2.extensions import connection
 
+from app.detection.engine import DetectionEngine
+from app.detection.repository import DetectionRepository
 from app.health_metrics import HostMetricsCollector
 from app.parsers.windows_event_parser import WindowsEventParser
 from app.repository import TelemetryRepository
@@ -41,6 +43,8 @@ class WindowsEventSourceHandler(SourceHandler):
         *,
         conn: connection,
         repository: TelemetryRepository,
+        detection_engine: DetectionEngine,
+        detection_repository: DetectionRepository,
         reader: WindowsEventReader,
         parser: WindowsEventParser,
         state: CollectorState,
@@ -48,6 +52,8 @@ class WindowsEventSourceHandler(SourceHandler):
     ) -> None:
         self.conn = conn
         self.repository = repository
+        self.detection_engine = detection_engine
+        self.detection_repository = detection_repository
         self.reader = reader
         self.parser = parser
         self.state = state
@@ -129,6 +135,9 @@ class WindowsEventSourceHandler(SourceHandler):
             )
 
             self.repository.insert_process_event(event)
+
+            findings = self.detection_engine.evaluate(event)
+            self.detection_repository.insert_findings(findings)
 
             inserted += 1
             highest_record_id = event["record_id"]

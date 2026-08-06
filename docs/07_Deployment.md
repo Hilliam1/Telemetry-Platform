@@ -22,6 +22,17 @@ copy .env.example .env
 
 Update `.env` with local PostgreSQL settings.
 
+## Apply Database Setup
+
+Run the SQL files in numbered order before starting the collector:
+
+```powershell
+psql -U postgres -d sysmon_lab -f .\sql\001_create_tables.sql
+psql -U postgres -d sysmon_lab -f .\sql\002_create_indexes.sql
+psql -U postgres -d sysmon_lab -f .\sql\003_create_detection_findings.sql
+psql -U postgres -d sysmon_lab -f .\sql\004_create_detection_indexes.sql
+```
+
 ## Run Collector
 
 ```powershell
@@ -45,11 +56,10 @@ py -m pytest -v
 py -m compileall app tests
 ```
 
-For the currently formatted Phase 6 files:
+For the currently formatted detection persistence files:
 
 ```powershell
-py -m ruff check app/collector.py app/collector_factory.py app/ingest.py app/source_handlers.py tests/test_collector.py tests/test_collector_factory.py
-py -m ruff format --check app/collector.py app/collector_factory.py app/ingest.py app/source_handlers.py tests/test_collector.py tests/test_collector_factory.py
+py -m ruff check app\detection app\source_handlers.py app\collector_factory.py tests\test_detection_repository.py tests\test_detection_integration.py tests\test_source_handlers.py tests\test_collector_factory.py
 ```
 
 ## Environment Variables

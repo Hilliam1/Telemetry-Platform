@@ -23,7 +23,7 @@ The project starts with Windows telemetry because Windows Event Logs and Sysmon 
 - Host health metrics
 - Collector state tracking
 - FastAPI query service
-- Deterministic in-memory detection foundation
+- Deterministic detection finding persistence
 - Modular collector internals for configuration, database connections, collector orchestration, dependency construction, state, reading, parsing, host metrics, source handlers, and persistence
 
 ## Current Internal Modules
@@ -37,7 +37,7 @@ The project starts with Windows telemetry because Windows Event Logs and Sysmon 
 - `app/parsers/windows_event_parser.py` parses and normalizes Windows event XML.
 - `app/health_metrics.py` collects host-health snapshots.
 - `app/source_handlers.py` executes source-specific ingestion workflows.
-- `app/detection/` contains the deterministic detection foundation.
+- `app/detection/` contains deterministic rules, evaluation, and finding persistence.
 - `app/repository.py` persists collector records using caller-controlled transactions.
 - `app/sources.py` defines supported telemetry sources and dispatch categories.
 - `app/state.py` manages checkpoint state.
@@ -48,7 +48,7 @@ The project starts with Windows telemetry because Windows Event Logs and Sysmon 
 - Linux telemetry
 - Proxmox telemetry
 - Wazuh integration
-- Detection persistence and correlation
+- Detection API routes and correlation
 - Alerting
 - Dashboard views
 - Docker deployment

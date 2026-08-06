@@ -31,6 +31,36 @@ def make_parsed_event(record_id: int) -> dict:
     }
 
 
+def make_windows_handler(
+    *,
+    conn,
+    repository,
+    reader,
+    parser,
+    state,
+    hostname="HOST-01",
+    detection_engine=None,
+    detection_repository=None,
+) -> WindowsEventSourceHandler:
+    if detection_engine is None:
+        detection_engine = Mock()
+        detection_engine.evaluate.return_value = ()
+
+    if detection_repository is None:
+        detection_repository = Mock()
+
+    return WindowsEventSourceHandler(
+        conn=conn,
+        repository=repository,
+        detection_engine=detection_engine,
+        detection_repository=detection_repository,
+        reader=reader,
+        parser=parser,
+        state=state,
+        hostname=hostname,
+    )
+
+
 def test_host_metrics_handler_kind():
     handler = HostMetricsSourceHandler(
         conn=Mock(),
@@ -103,7 +133,7 @@ def test_host_metrics_handler_skips_without_psutil():
 
 
 def test_windows_handler_kind():
-    handler = WindowsEventSourceHandler(
+    handler = make_windows_handler(
         conn=Mock(),
         repository=Mock(),
         reader=Mock(),
@@ -128,7 +158,7 @@ def test_windows_handler_ingests_channel_and_updates_state():
     ]
     parser.parse.return_value = make_parsed_event(41)
 
-    handler = WindowsEventSourceHandler(
+    handler = make_windows_handler(
         conn=conn,
         repository=repository,
         reader=reader,
@@ -171,7 +201,7 @@ def test_windows_handler_uses_default_hostname_when_event_computer_missing():
     ]
     parser.parse.return_value = event
 
-    handler = WindowsEventSourceHandler(
+    handler = make_windows_handler(
         conn=conn,
         repository=repository,
         reader=reader,
@@ -207,7 +237,7 @@ def test_windows_handler_sorts_events_before_checkpoint_update():
         second_event,
     ]
 
-    handler = WindowsEventSourceHandler(
+    handler = make_windows_handler(
         conn=conn,
         repository=repository,
         reader=reader,
@@ -238,7 +268,7 @@ def test_windows_handler_rolls_back_failed_channel():
 
     reader.read_channel.side_effect = RuntimeError("channel failed")
 
-    handler = WindowsEventSourceHandler(
+    handler = make_windows_handler(
         conn=conn,
         repository=Mock(),
         reader=reader,
@@ -271,7 +301,7 @@ def test_state_does_not_advance_when_database_commit_fails():
         make_parsed_event(102),
     ]
 
-    handler = WindowsEventSourceHandler(
+    handler = make_windows_handler(
         conn=conn,
         repository=repository,
         reader=reader,
@@ -284,5 +314,95 @@ def test_state_does_not_advance_when_database_commit_fails():
 
     assert result == 0
     conn.rollback.assert_called_once_with()
+    state.update_record_id.assert_not_called()
+    state.save.assert_not_called()
+
+
+def test_windows_handler_persists_detection_findings():
+    conn = Mock()
+    repository = Mock()
+    detection_engine = Mock()
+    detection_repository = Mock()
+    reader = Mock()
+    parser = Mock()
+    state = Mock()
+
+    state.get_last_record_id.return_value = 40
+    reader.read_channel.return_value = [
+        "<Event>one</Event>",
+    ]
+    event = make_parsed_event(41)
+    finding = Mock()
+
+    parser.parse.return_value = event
+    detection_engine.evaluate.return_value = (finding,)
+
+    handler = make_windows_handler(
+        conn=conn,
+        repository=repository,
+        detection_engine=detection_engine,
+        detection_repository=detection_repository,
+        reader=reader,
+        parser=parser,
+        state=state,
+        hostname="HOST-01",
+    )
+
+    source = TelemetrySource(
+        name="sysmon",
+        kind=SourceKind.WINDOWS_EVENT,
+        channels=("Microsoft-Windows-Sysmon/Operational",),
+    )
+
+    result = handler.ingest(source)
+
+    assert result == 1
+    detection_engine.evaluate.assert_called_once_with(event)
+    detection_repository.insert_findings.assert_called_once_with((finding,))
+    conn.commit.assert_called_once_with()
+    state.update_record_id.assert_called_once()
+
+
+def test_detection_persistence_failure_rolls_back_and_keeps_checkpoint():
+    conn = Mock()
+    repository = Mock()
+    detection_engine = Mock()
+    detection_repository = Mock()
+    reader = Mock()
+    parser = Mock()
+    state = Mock()
+
+    state.get_last_record_id.return_value = 40
+    reader.read_channel.return_value = [
+        "<Event>one</Event>",
+    ]
+    parser.parse.return_value = make_parsed_event(41)
+
+    detection_engine.evaluate.return_value = (Mock(),)
+    detection_repository.insert_findings.side_effect = RuntimeError(
+        "finding insert failed"
+    )
+
+    handler = make_windows_handler(
+        conn=conn,
+        repository=repository,
+        detection_engine=detection_engine,
+        detection_repository=detection_repository,
+        reader=reader,
+        parser=parser,
+        state=state,
+        hostname="HOST-01",
+    )
+
+    source = TelemetrySource(
+        name="sysmon",
+        kind=SourceKind.WINDOWS_EVENT,
+        channels=("Sysmon",),
+    )
+
+    assert handler.ingest(source) == 0
+
+    conn.rollback.assert_called_once_with()
+    conn.commit.assert_not_called()
     state.update_record_id.assert_not_called()
     state.save.assert_not_called()

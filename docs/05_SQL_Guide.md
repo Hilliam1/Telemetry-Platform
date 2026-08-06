@@ -4,7 +4,18 @@ The repository includes starter SQL files in `sql/`.
 
 - `001_create_tables.sql` creates the initial telemetry tables.
 - `002_create_indexes.sql` adds query indexes.
+- `003_create_detection_findings.sql` creates the durable detection findings table.
+- `004_create_detection_indexes.sql` adds detection finding query indexes.
 - `basic_queries.sql` contains common operational and analysis queries.
+
+Apply the numbered SQL files in order:
+
+```powershell
+psql -U postgres -d sysmon_lab -f .\sql\001_create_tables.sql
+psql -U postgres -d sysmon_lab -f .\sql\002_create_indexes.sql
+psql -U postgres -d sysmon_lab -f .\sql\003_create_detection_findings.sql
+psql -U postgres -d sysmon_lab -f .\sql\004_create_detection_indexes.sql
+```
 
 ## Latest Events
 
@@ -40,6 +51,27 @@ SELECT source_host, image, command_line, user_name, created_at
 FROM process_events
 ORDER BY created_at DESC
 LIMIT 50;
+```
+
+## Recent Detection Findings
+
+```sql
+SELECT
+    finding_uuid,
+    rule_id,
+    rule_version,
+    title,
+    severity,
+    source_host,
+    event_id,
+    event_record_id,
+    event_time,
+    evaluated_at,
+    evidence,
+    tags
+FROM detection_findings
+ORDER BY created_at DESC
+LIMIT 20;
 ```
 
 ## Collector Health
