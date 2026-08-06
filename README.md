@@ -17,11 +17,14 @@ The current version focuses on Windows Event Log and Sysmon collection, PostgreS
 - Environment-based configuration
 - SQL schema, index, and starter query files
 - FastAPI endpoints for logs, metrics, search, and event counts
+- Deterministic in-memory detection foundation
 
 ## Current Architecture
 
+Process startup:
+
 ```text
-Windows Event Logs
+app.ingest
         |
         v
 Collector Factory
@@ -34,6 +37,12 @@ Source Registry
         |
         v
 Source Handler Registry
+```
+
+Windows event path:
+
+```text
+Windows Event Logs
         |
         v
 Windows Event Reader
@@ -101,6 +110,11 @@ Telemetry-Platform/
 |   |-- collector_factory.py
 |   |-- config.py
 |   |-- database.py
+|   |-- detection/
+|   |   |-- __init__.py
+|   |   |-- engine.py
+|   |   |-- models.py
+|   |   `-- rules.py
 |   |-- health_metrics.py
 |   |-- ingest.py
 |   |-- repository.py
@@ -125,7 +139,9 @@ Telemetry-Platform/
 |   |-- 05_SQL_Guide.md
 |   |-- 06_Event_Parsing.md
 |   |-- 07_Deployment.md
-|   `-- 08_Troubleshooting.md
+|   |-- 08_Troubleshooting.md
+|   |-- 09_Architecture_Decisions.md
+|   `-- 10_Detection_Engine.md
 |-- diagrams/
 |-- screenshots/
 |-- tests/

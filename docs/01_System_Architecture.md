@@ -3,9 +3,9 @@
 | Field | Value |
 |---|---|
 | Specification | `docs/01_System_Architecture.md` |
-| Version | 0.1 |
+| Version | 0.2 |
 | Status | Draft for architecture review |
-| Implements | Platform Phase 9 |
+| Implements | Platform Phase 10 |
 | Last Reviewed | August 2026 |
 | Purpose | Define the current system architecture, governing engineering principles, and planned evolution of the Telemetry Platform. |
 
@@ -52,7 +52,7 @@ Future versions are expected to add event correlation, detection rules, risk sco
 
 ### 1.3 Current Scope
 
-At the Phase 9 baseline, the platform includes:
+At the Phase 10 baseline, the platform includes:
 
 - Windows Event Log collection
 - host-health metric collection
@@ -63,10 +63,11 @@ At the Phase 9 baseline, the platform includes:
 - explicit source registration
 - polymorphic source handlers
 - dependency injection through a collector factory
+- deterministic in-memory detection models, rules, and evaluation
 - unit testing for major components
 - technical repository documentation
 
-The platform intentionally does not yet include a production dashboard, detection engine, AI reasoning layer, or automated response engine.
+The platform intentionally does not yet include a production dashboard, persisted findings, correlation engine, AI reasoning layer, or automated response engine. The Phase 10 detection foundation is isolated and is not yet invoked by ingestion or exposed through the API.
 
 ### 1.4 Long-Term Vision
 
@@ -104,6 +105,7 @@ Each module should own one primary responsibility.
 | `app/collector.py` | Polling and run orchestration |
 | `app/sources.py` | Source definitions |
 | `app/source_handlers.py` | Source-specific execution |
+| `app/detection/` | Deterministic detection models, rules, and evaluation |
 | `app/windows_reader.py` | Windows Event Log access |
 | `app/parsers/windows_event_parser.py` | XML parsing and normalization |
 | `app/health_metrics.py` | Host metric collection |
@@ -303,27 +305,31 @@ Defines supported source names, source kinds, Windows channels, validation, and 
 
 Implements Windows and host-metric workflows, channel isolation, source-level transactions, persistence coordination, and checkpoint updates.
 
-### 4.6 `app/windows_reader.py`
+### 4.6 `app/detection/`
+
+Defines deterministic detection models, built-in rules, and in-memory rule evaluation. The detection package is not yet invoked by the collector, persisted to PostgreSQL, or exposed through the API.
+
+### 4.7 `app/windows_reader.py`
 
 Encapsulates `EvtQuery`, `EvtNext`, `EvtRender`, query construction, batch limits, and native handle cleanup.
 
-### 4.7 `app/parsers/windows_event_parser.py`
+### 4.8 `app/parsers/windows_event_parser.py`
 
 Converts Windows XML into normalized event dictionaries.
 
-### 4.8 `app/health_metrics.py`
+### 4.9 `app/health_metrics.py`
 
 Collects CPU, memory, disk, boot-time, hostname, and optional-`psutil` status.
 
-### 4.9 `app/repository.py`
+### 4.10 `app/repository.py`
 
 Executes collector INSERT operations without committing, rolling back, parsing, or orchestrating.
 
-### 4.10 `app/state.py`
+### 4.11 `app/state.py`
 
 Loads, validates, advances, and atomically saves source/channel checkpoints.
 
-### 4.11 `app/api.py`
+### 4.12 `app/api.py`
 
 Exposes logs, search, statistics, and metrics over HTTP.
 
@@ -656,9 +662,9 @@ flowchart TD
 
 ---
 
-## 11. Planned Detection and Correlation Architecture
+## 11. Detection and Correlation Architecture
 
-> **Implementation status:** Future-state design. This layer is not implemented in the Phase 9 baseline.
+> **Implementation status:** Phase 10 implements a deterministic in-memory detection foundation. Finding persistence, correlation, alerting, risk scoring, and API exposure are future-state designs.
 
 
 ```mermaid
@@ -671,7 +677,7 @@ flowchart TD
  F --> G[Incidents]
 ```
 
-Planned components include a detection rule registry, evaluator, temporal correlation engine, asset context service, user context service, risk scorer, alert repository, incident service, and suppression framework.
+Current Phase 10 components include deterministic detection models, built-in PowerShell-focused rules, and an in-memory evaluation engine. Planned components include finding persistence, a detection rule registry, temporal correlation engine, asset context service, user context service, risk scorer, alert repository, incident service, and suppression framework.
 
 Detection principles:
 
@@ -687,7 +693,7 @@ Detection principles:
 
 ## 12. Planned AI and Reasoning Architecture
 
-> **Implementation status:** Future-state design. AI reasoning, RAG, and recommendation services are not implemented in the Phase 9 baseline.
+> **Implementation status:** Future-state design. AI reasoning, RAG, and recommendation services are not implemented in the Phase 10 baseline.
 
 
 ```mermaid
@@ -773,7 +779,8 @@ A self-hosted security and operational intelligence assistant for small organiza
 | Phase 7 | Explicit source registry introduced |
 | Phase 8 | Polymorphic source handlers introduced |
 | Phase 9 | Collector service, factory, and thin entry point introduced |
-| Phase 10+ | Detection, correlation, product hardening, and intelligence layers |
+| Phase 10 | Deterministic in-memory detection foundation introduced |
+| Phase 11+ | Detection persistence, correlation, product hardening, and intelligence layers |
 
 ---
 
