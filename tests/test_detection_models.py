@@ -81,3 +81,20 @@ def test_finding_ignores_invalid_record_id():
     )
 
     assert finding.event_record_id is None
+
+
+def test_finding_evidence_is_read_only():
+    rule = make_rule()
+
+    finding = DetectionFinding.from_match(
+        rule=rule,
+        event={
+            "computer": "HOST-01",
+            "source_type": "sysmon",
+            "event_id": 1,
+        },
+        evidence={"Image": "powershell.exe"},
+    )
+
+    with pytest.raises(TypeError):
+        finding.evidence["Image"] = "changed.exe"

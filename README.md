@@ -21,8 +21,10 @@ The current version focuses on Windows Event Log and Sysmon collection, PostgreS
 
 ## Current Architecture
 
+Process startup:
+
 ```text
-Windows Event Logs
+app.ingest
         |
         v
 Collector Factory
@@ -35,6 +37,12 @@ Source Registry
         |
         v
 Source Handler Registry
+```
+
+Windows event path:
+
+```text
+Windows Event Logs
         |
         v
 Windows Event Reader

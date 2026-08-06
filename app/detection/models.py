@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
+from types import MappingProxyType
 from typing import Any
 from uuid import uuid4
 
@@ -64,7 +66,9 @@ class DetectionFinding:
     evaluated_at: datetime
     explanation: str
     investigation_steps: tuple[str, ...]
-    evidence: dict[str, Any] = field(default_factory=dict)
+    evidence: Mapping[str, Any] = field(
+        default_factory=lambda: MappingProxyType({})
+    )
     tags: tuple[str, ...] = ()
 
     @classmethod
@@ -103,6 +107,6 @@ class DetectionFinding:
             evaluated_at=datetime.now(timezone.utc),
             explanation=rule.explanation,
             investigation_steps=rule.investigation_steps,
-            evidence=dict(evidence),
+            evidence=MappingProxyType(dict(evidence)),
             tags=rule.tags,
         )

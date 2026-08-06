@@ -54,9 +54,10 @@ It includes:
 - `DetectionRule`
 - `DetectionFinding`
 
-Rules and findings are immutable dataclasses. That matters because a finding is
-evidence that a specific rule version matched a specific event at a specific
-time.
+Rules and findings are immutable dataclasses. Finding evidence is stored as a
+read-only mapping, so the matched evidence cannot be changed after the finding
+is created. That matters because a finding is evidence that a specific rule
+version matched a specific event at a specific time.
 
 ## `app/detection/rules.py`
 
@@ -128,6 +129,7 @@ Phase 10 adds tests for:
 - disabled rules
 - duplicate rule identities
 - unsupported condition operators
+- read-only finding evidence
 
 ## Beginner Explanation
 
