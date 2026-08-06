@@ -116,6 +116,11 @@ Telemetry-Platform/
 |   |-- collector_factory.py
 |   |-- config.py
 |   |-- database.py
+|   |-- correlation/
+|   |   |-- __init__.py
+|   |   |--engine.py
+|   |   |--models.py
+|   |   |--rules.py
 |   |-- detection/
 |   |   |-- __init__.py
 |   |   |-- engine.py
@@ -151,7 +156,8 @@ Telemetry-Platform/
 |   |-- 08_Troubleshooting.md
 |   |-- 09_Architecture_Decisions.md
 |   |-- 10_Detection_Engine.md
-|   `-- 11_Detection_Persistence.md
+|   |-- 11_Detection_Persistence.md
+|   |-- 12_Correlation_Engine.md
 |-- diagrams/
 |-- screenshots/
 |-- tests/

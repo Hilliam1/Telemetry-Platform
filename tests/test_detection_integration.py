@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from unittest.mock import MagicMock, Mock
+from unittest.mock import Mock
 
 from app.detection.engine import DetectionEngine
 from app.detection.repository import DetectionRepository
@@ -33,9 +33,7 @@ def test_encoded_powershell_event_reaches_repository():
 
     conn = Mock()
     cursor = Mock()
-    cursor_context = MagicMock()
-    cursor_context.__enter__.return_value = cursor
-    conn.cursor.return_value = cursor_context
+    conn.cursor.return_value.__enter__.return_value = cursor
 
     repository = DetectionRepository(conn)
     count = repository.insert_findings(findings)
