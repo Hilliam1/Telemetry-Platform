@@ -19,6 +19,7 @@ modules:
 - `app/sources.py` defines supported telemetry sources and their dispatch categories.
 - `app/source_handlers.py` runs source-specific ingestion workflows.
 - `app/detection/` evaluates deterministic rules and persists findings.
+- `app/correlation/` groups related detection findings in memory.
 - `app/state.py` saves collector checkpoints.
 
 The full collector system:
@@ -37,6 +38,7 @@ The pipeline looks like this:
 ```text
 Windows Event Logs -> XML -> Python dictionary -> detection findings -> PostgreSQL tables
 Host metrics -> Python dictionary -> PostgreSQL table
+Detection findings -> correlation rules -> in-memory correlation matches
 ```
 
 ## Imports
@@ -452,6 +454,23 @@ those findings for the `detection_findings` table.
 These finding rows use the same source transaction as the log and process rows.
 That means a finding insert failure rolls back the whole channel transaction and
 the collector checkpoint does not move forward.
+
+### Correlation Foundation
+
+Phase 12 adds `app/correlation/`.
+
+Correlation does not look at raw Windows XML and does not read from PostgreSQL.
+It works with `DetectionFinding` objects that already exist.
+
+The current correlation engine can answer questions like:
+
+```text
+Did the same event produce both a PowerShell finding and an encoded-command finding?
+Did the same host produce repeated encoded PowerShell findings within ten minutes?
+```
+
+For now, correlation matches are returned in memory only. They are not saved to
+the database, shown by the API, turned into alerts, or sent to AI.
 
 It skips events unless:
 
