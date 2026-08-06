@@ -1,6 +1,10 @@
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 
+import pytest
+
 from app.correlation.engine import CorrelationEngine
+from app.correlation.models import CorrelationMode
 from app.correlation.rules import (
     BUILTIN_CORRELATION_RULES,
 )
@@ -228,3 +232,89 @@ def test_empty_findings_return_no_matches():
     )
 
     assert engine.evaluate(()) == ()
+
+
+def test_disabled_rule_does_not_match():
+    disabled_rule = replace(
+        BUILTIN_CORRELATION_RULES[0],
+        enabled=False,
+    )
+    engine = CorrelationEngine((disabled_rule,))
+
+    findings = (
+        make_finding(
+            finding_id="finding-1",
+            rule_id="TP-WIN-SYSMON-0001",
+            event_record_id=100,
+        ),
+        make_finding(
+            finding_id="finding-2",
+            rule_id="TP-WIN-SYSMON-0002",
+            event_record_id=100,
+        ),
+    )
+
+    assert engine.evaluate(findings) == ()
+
+
+def test_duplicate_rule_identity_is_rejected():
+    rule = BUILTIN_CORRELATION_RULES[0]
+
+    with pytest.raises(
+        ValueError,
+        match="Duplicate correlation rule identity",
+    ):
+        CorrelationEngine((rule, rule))
+
+
+def test_unknown_grouping_field_is_rejected():
+    invalid_rule = replace(
+        BUILTIN_CORRELATION_RULES[0],
+        rule_id="TP-CORR-TEST-INVALID",
+        group_by=("source_hots",),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="unsupported grouping fields",
+    ):
+        CorrelationEngine((invalid_rule,))
+
+
+@pytest.mark.parametrize(
+    ("field_name", "value", "message"),
+    (
+        ("required_detection_rule_ids", (), "requires no detection rules"),
+        ("group_by", (), "has no grouping fields"),
+        ("window_seconds", 0, "positive correlation window"),
+        ("minimum_matches", 0, "at least one match"),
+    ),
+)
+def test_invalid_rule_settings_are_rejected(
+    field_name,
+    value,
+    message,
+):
+    invalid_rule = replace(
+        BUILTIN_CORRELATION_RULES[0],
+        rule_id=f"TP-CORR-TEST-{field_name}",
+        **{field_name: value},
+    )
+
+    with pytest.raises(ValueError, match=message):
+        CorrelationEngine((invalid_rule,))
+
+
+def test_same_event_minimum_matches_must_cover_required_rules():
+    invalid_rule = replace(
+        BUILTIN_CORRELATION_RULES[0],
+        rule_id="TP-CORR-TEST-MINIMUM",
+        mode=CorrelationMode.SAME_EVENT,
+        minimum_matches=1,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="requires fewer matches",
+    ):
+        CorrelationEngine((invalid_rule,))

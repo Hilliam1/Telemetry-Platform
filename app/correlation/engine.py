@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import timedelta
-from typing import Any
+from typing import Any, ClassVar
 
 from app.correlation.models import (
     CorrelationMatch,
@@ -16,6 +16,17 @@ from app.detection.models import DetectionFinding
 
 class CorrelationEngine:
     """Evaluate detection findings against correlation rules."""
+
+    ALLOWED_GROUP_FIELDS: ClassVar[frozenset[str]] = frozenset(
+        {
+            "source_host",
+            "source_type",
+            "event_id",
+            "event_record_id",
+            "rule_id",
+            "rule_version",
+        }
+    )
 
     def __init__(
         self,
@@ -278,6 +289,14 @@ class CorrelationEngine:
                     f"Rule {rule.rule_id} has no grouping fields"
                 )
 
+            unknown_fields = set(rule.group_by) - self.ALLOWED_GROUP_FIELDS
+
+            if unknown_fields:
+                raise ValueError(
+                    f"Rule {rule.rule_id} uses unsupported "
+                    f"grouping fields: {sorted(unknown_fields)}"
+                )
+
             if rule.window_seconds <= 0:
                 raise ValueError(
                     f"Rule {rule.rule_id} must have a "
@@ -288,4 +307,14 @@ class CorrelationEngine:
                 raise ValueError(
                     f"Rule {rule.rule_id} must require at "
                     "least one match"
+                )
+
+            if (
+                rule.mode is CorrelationMode.SAME_EVENT
+                and rule.minimum_matches
+                < len(set(rule.required_detection_rule_ids))
+            ):
+                raise ValueError(
+                    f"Rule {rule.rule_id} requires fewer matches "
+                    "than its distinct required detection rules"
                 )

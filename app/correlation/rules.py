@@ -4,6 +4,7 @@ from app.correlation.models import (
     CorrelationMode,
     CorrelationRule,
 )
+from app.detection.models import DetectionSeverity
 
 ENCODED_POWERSHELL_EXECUTION = CorrelationRule(
     rule_id="TP-CORR-WIN-0001",
@@ -14,7 +15,7 @@ ENCODED_POWERSHELL_EXECUTION = CorrelationRule(
         "the encoded-command finding produced by the same Sysmon "
         "process-creation event."
     ),
-    severity="medium",
+    severity=DetectionSeverity.MEDIUM,
     mode=CorrelationMode.SAME_EVENT,
     required_detection_rule_ids=(
         "TP-WIN-SYSMON-0001",
@@ -53,7 +54,7 @@ REPEATED_ENCODED_POWERSHELL = CorrelationRule(
         "Detects multiple encoded PowerShell findings on the same "
         "host within a ten-minute window."
     ),
-    severity="high",
+    severity=DetectionSeverity.HIGH,
     mode=CorrelationMode.TEMPORAL_COUNT,
     required_detection_rule_ids=(
         "TP-WIN-SYSMON-0002",

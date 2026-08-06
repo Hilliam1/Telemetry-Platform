@@ -80,3 +80,15 @@ def test_correlation_preserves_finding_ids():
         "finding-1",
         "finding-2",
     }
+
+
+def test_correlation_match_requires_at_least_one_finding():
+    with pytest.raises(
+        ValueError,
+        match="requires at least one finding",
+    ):
+        CorrelationMatch.from_findings(
+            rule=ENCODED_POWERSHELL_EXECUTION,
+            findings=(),
+            evidence={},
+        )

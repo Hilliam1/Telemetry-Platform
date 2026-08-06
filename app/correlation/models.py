@@ -10,7 +10,7 @@ from types import MappingProxyType
 from typing import Any
 from uuid import uuid4
 
-from app.detection.models import DetectionFinding
+from app.detection.models import DetectionFinding, DetectionSeverity
 
 
 class CorrelationMode(str, Enum):
@@ -28,7 +28,7 @@ class CorrelationRule:
     version: int
     name: str
     description: str
-    severity: str
+    severity: DetectionSeverity
     mode: CorrelationMode
     required_detection_rule_ids: tuple[str, ...]
     group_by: tuple[str, ...]
@@ -48,7 +48,7 @@ class CorrelationMatch:
     rule_id: str
     rule_version: int
     title: str
-    severity: str
+    severity: DetectionSeverity
     source_host: str
     first_event_time: datetime
     last_event_time: datetime
@@ -67,6 +67,11 @@ class CorrelationMatch:
         findings: tuple[DetectionFinding, ...],
         evidence: dict[str, Any],
     ) -> CorrelationMatch:
+        if not findings:
+            raise ValueError(
+                "CorrelationMatch requires at least one finding"
+            )
+
         ordered = tuple(
             sorted(
                 findings,

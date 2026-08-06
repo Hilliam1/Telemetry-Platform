@@ -4,7 +4,7 @@ Enterprise Telemetry Platform is a Python-based security telemetry project for c
 
 It is designed as an extensible platform for collecting, normalizing, storing, and querying system, security, and performance data across Windows, Linux, Proxmox, and future infrastructure.
 
-The current version focuses on Windows Event Log and Sysmon collection, PostgreSQL storage, process event extraction, collector state tracking, host health metrics, deterministic detection finding persistence, and a small FastAPI query service.
+The current version focuses on Windows Event Log and Sysmon collection, PostgreSQL storage, process event extraction, collector state tracking, host health metrics, deterministic detection finding persistence, deterministic in-memory correlation, and a small FastAPI query service.
 
 ## Current Features
 
@@ -18,6 +18,7 @@ The current version focuses on Windows Event Log and Sysmon collection, PostgreS
 - SQL schema, index, and starter query files
 - FastAPI endpoints for logs, metrics, search, and event counts
 - Deterministic detection rules with PostgreSQL-backed finding persistence
+- Deterministic in-memory correlation of detection findings
 
 ## Current Architecture
 
@@ -48,22 +49,21 @@ Windows Event Logs
 Windows Event Reader
         |
         v
-Parsing and Normalization
+Windows Event Parser
         |
         v
-Persistence Repository
-        |
-        v
-Detection Engine
-        |
-        v
-Detection Repository
-        |
-        v
-PostgreSQL Database
-        |
-        v
-FastAPI Query Service
+Normalized Event
+   |             |
+   v             v
+Telemetry     Detection
+Repository     Engine
+   |             |
+   |             v
+   |      Detection Repository
+   |             |
+   +------v------+
+      PostgreSQL
+        COMMIT
 ```
 
 Host health metrics follow a parallel path:
@@ -118,9 +118,9 @@ Telemetry-Platform/
 |   |-- database.py
 |   |-- correlation/
 |   |   |-- __init__.py
-|   |   |--engine.py
-|   |   |--models.py
-|   |   |--rules.py
+|   |   |-- engine.py
+|   |   |-- models.py
+|   |   `-- rules.py
 |   |-- detection/
 |   |   |-- __init__.py
 |   |   |-- engine.py
@@ -157,7 +157,7 @@ Telemetry-Platform/
 |   |-- 09_Architecture_Decisions.md
 |   |-- 10_Detection_Engine.md
 |   |-- 11_Detection_Persistence.md
-|   |-- 12_Correlation_Engine.md
+|   `-- 12_Correlation_Engine.md
 |-- diagrams/
 |-- screenshots/
 |-- tests/
