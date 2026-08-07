@@ -20,6 +20,7 @@ modules:
 - `app/source_handlers.py` runs source-specific ingestion workflows.
 - `app/detection/` evaluates deterministic rules and persists findings.
 - `app/correlation/` groups related detection findings in memory.
+- `app/risk/` assigns deterministic risk scores to correlation matches in memory.
 - `app/state.py` saves collector checkpoints.
 
 The full collector system:
@@ -39,6 +40,7 @@ The pipeline looks like this:
 Windows Event Logs -> XML -> Python dictionary -> detection findings -> PostgreSQL tables
 Host metrics -> Python dictionary -> PostgreSQL table
 Detection findings -> correlation rules -> in-memory correlation matches
+Correlation matches -> risk policy and providers -> in-memory risk assessments
 ```
 
 ## Imports
@@ -471,6 +473,27 @@ Did the same host produce repeated encoded PowerShell findings within ten minute
 
 For now, correlation matches are returned in memory only. They are not saved to
 the database, shown by the API, turned into alerts, or sent to AI.
+
+### Risk Foundation
+
+Phase 13 adds `app/risk/`.
+
+Risk does not look at raw Windows XML, raw log rows, or process records. It
+starts from a `CorrelationMatch`.
+
+The risk engine:
+
+1. Converts correlation severity into a base score.
+2. Asks registered providers for explainable score contributions.
+3. Adds the contributions to the base score.
+4. Clamps the final score between 0 and 100.
+5. Converts the score into a normalized `RiskLevel`.
+
+Providers do not return final scores. They only return adjustments like `+15`
+or `-10`, with evidence explaining why.
+
+For now, risk assessments are returned in memory only. They are not persisted,
+shown by the API, turned into alerts, or sent to AI.
 
 It skips events unless:
 

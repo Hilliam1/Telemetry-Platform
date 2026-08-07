@@ -25,6 +25,7 @@ The project starts with Windows telemetry because Windows Event Logs and Sysmon 
 - FastAPI query service
 - Deterministic detection finding persistence
 - Deterministic in-memory correlation foundation
+- Deterministic in-memory risk assessment foundation
 - Modular collector internals for configuration, database connections, collector orchestration, dependency construction, state, reading, parsing, host metrics, source handlers, and persistence
 
 ## Current Internal Modules
@@ -40,6 +41,7 @@ The project starts with Windows telemetry because Windows Event Logs and Sysmon 
 - `app/source_handlers.py` executes source-specific ingestion workflows.
 - `app/correlation/` contains deterministic finding correlation models, rules, and evaluation.
 - `app/detection/` contains deterministic rules, evaluation, and finding persistence.
+- `app/risk/` contains deterministic risk models, policy, providers, and score aggregation.
 - `app/repository.py` persists collector records using caller-controlled transactions.
 - `app/sources.py` defines supported telemetry sources and dispatch categories.
 - `app/state.py` manages checkpoint state.
@@ -50,7 +52,7 @@ The project starts with Windows telemetry because Windows Event Logs and Sysmon 
 - Linux telemetry
 - Proxmox telemetry
 - Wazuh integration
-- Correlation persistence and detection API routes
+- Correlation persistence, risk persistence, and detection API routes
 - Alerting
 - Dashboard views
 - Docker deployment

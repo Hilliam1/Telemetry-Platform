@@ -5,7 +5,7 @@
 | Specification | `docs/01_System_Architecture.md` |
 | Version | 0.2 |
 | Status | Draft for architecture review |
-| Implements | Platform Phase 11 |
+| Implements | Platform Phase 13 |
 | Last Reviewed | August 2026 |
 | Purpose | Define the current system architecture, governing engineering principles, and planned evolution of the Telemetry Platform. |
 
@@ -52,7 +52,7 @@ Future versions are expected to add event correlation, detection rules, risk sco
 
 ### 1.3 Current Scope
 
-At the Phase 11 baseline, the platform includes:
+At the Phase 13 baseline, the platform includes:
 
 - Windows Event Log collection
 - host-health metric collection
@@ -64,10 +64,12 @@ At the Phase 11 baseline, the platform includes:
 - polymorphic source handlers
 - dependency injection through a collector factory
 - deterministic detection models, rules, evaluation, and finding persistence
+- deterministic in-memory correlation models, rules, and evaluation
+- deterministic in-memory risk models, policy, providers, and assessment
 - unit testing for major components
 - technical repository documentation
 
-The platform intentionally does not yet include a production dashboard, correlation engine, AI reasoning layer, or automated response engine. Phase 11 invokes deterministic detection during Windows event ingestion and persists findings, but findings are not yet exposed through the API.
+The platform intentionally does not yet include a production dashboard, alert engine, AI reasoning layer, or automated response engine. Phase 11 invokes deterministic detection during Windows event ingestion and persists findings. Phase 12 and Phase 13 add isolated in-memory correlation and risk foundations, but those foundations are not yet invoked by the collector, persisted, or exposed through the API.
 
 ### 1.4 Long-Term Vision
 
@@ -105,7 +107,9 @@ Each module should own one primary responsibility.
 | `app/collector.py` | Polling and run orchestration |
 | `app/sources.py` | Source definitions |
 | `app/source_handlers.py` | Source-specific execution |
+| `app/correlation/` | Deterministic correlation models, rules, and evaluation |
 | `app/detection/` | Deterministic detection models, rules, evaluation, and finding persistence |
+| `app/risk/` | Deterministic risk policy, providers, and score aggregation |
 | `app/windows_reader.py` | Windows Event Log access |
 | `app/parsers/windows_event_parser.py` | XML parsing and normalization |
 | `app/health_metrics.py` | Host metric collection |
@@ -688,22 +692,22 @@ flowchart TD
 
 ---
 
-## 11. Detection and Correlation Architecture
+## 11. Detection, Correlation, and Risk Architecture
 
-> **Implementation status:** Phase 11 implements deterministic detection evaluation during Windows event ingestion and persists findings to PostgreSQL. Correlation, alerting, risk scoring, and API exposure are future-state designs.
+> **Implementation status:** Phase 13 implements deterministic detection evaluation and persistence, deterministic in-memory correlation, and deterministic in-memory risk assessment. Correlation matches and risk assessments are not yet persisted, invoked by the collector, exposed through the API, or converted into alerts.
 
 
 ```mermaid
 flowchart TD
- A[Normalized Telemetry] --> B[Enrichment]
- B --> C[Correlation]
- C --> D[Detection Rules]
- D --> E[Risk Scoring]
+ A[Normalized Telemetry] --> B[Detection Rules]
+ B --> C[Detection Findings]
+ C --> D[Correlation]
+ D --> E[Risk Assessment]
  E --> F[Alerts]
  F --> G[Incidents]
 ```
 
-Current Phase 11 components include deterministic detection models, built-in PowerShell-focused rules, an in-memory evaluation engine, and a detection repository that persists findings in the same transaction as their source events. Planned components include a detection rule registry, temporal correlation engine, asset context service, user context service, risk scorer, alert repository, incident service, and suppression framework.
+Current Phase 13 components include deterministic detection models, built-in PowerShell-focused rules, an in-memory detection engine, a detection repository that persists findings in the same transaction as their source events, an in-memory correlation engine for detection findings, and an in-memory risk engine for correlation matches. Planned components include correlation persistence, risk persistence, a detection rule registry, asset context service, user context service, alert repository, incident service, and suppression framework.
 
 Detection principles:
 
@@ -714,12 +718,14 @@ Detection principles:
 - versioned rules
 - testable scenarios
 - explicit false-positive handling
+- explainable risk contributions
+- final scoring owned by deterministic policy
 
 ---
 
 ## 12. Planned AI and Reasoning Architecture
 
-> **Implementation status:** Future-state design. AI reasoning, RAG, and recommendation services are not implemented in the Phase 11 baseline.
+> **Implementation status:** Future-state design. AI reasoning, RAG, and recommendation services are not implemented in the Phase 13 baseline.
 
 
 ```mermaid
@@ -807,7 +813,9 @@ A self-hosted security and operational intelligence assistant for small organiza
 | Phase 9 | Collector service, factory, and thin entry point introduced |
 | Phase 10 | Deterministic in-memory detection foundation introduced |
 | Phase 11 | Deterministic findings persisted with source event transactions |
-| Phase 12+ | Correlation, product hardening, and intelligence layers |
+| Phase 12 | Deterministic in-memory correlation foundation introduced |
+| Phase 13 | Deterministic in-memory risk assessment foundation introduced |
+| Phase 14+ | Alerting, product hardening, and intelligence layers |
 
 ---
 
