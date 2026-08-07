@@ -13,6 +13,21 @@ from uuid import uuid4
 from app.risk.models import RiskAssessment, RiskLevel
 
 
+def _freeze(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return MappingProxyType(
+            {key: _freeze(item) for key, item in value.items()}
+        )
+
+    if isinstance(value, tuple):
+        return tuple(_freeze(item) for item in value)
+
+    if isinstance(value, list):
+        return tuple(_freeze(item) for item in value)
+
+    return value
+
+
 class AlertStatus(str, Enum):
     """Supported alert lifecycle states."""
 
@@ -64,15 +79,13 @@ class Alert:
             last_event_time=assessment.last_event_time,
             created_at=created_at,
             summary=summary,
-            evidence=MappingProxyType(
+            evidence=_freeze(
                 {
                     "base_score": assessment.base_score,
                     "contribution_count": len(
                         assessment.contributions
                     ),
-                    "risk_evidence": MappingProxyType(
-                        dict(assessment.evidence)
-                    ),
+                    "risk_evidence": dict(assessment.evidence),
                 }
             ),
         )

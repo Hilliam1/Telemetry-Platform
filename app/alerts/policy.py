@@ -14,6 +14,14 @@ class AlertPolicy:
     minimum_score: int = 40
 
     def __post_init__(self) -> None:
+        if isinstance(self.minimum_score, bool) or not isinstance(
+            self.minimum_score,
+            int,
+        ):
+            raise TypeError(
+                "Alert minimum score must be an integer"
+            )
+
         if not 0 <= self.minimum_score <= 100:
             raise ValueError(
                 "Alert minimum score must be between 0 and 100"

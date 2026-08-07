@@ -40,6 +40,13 @@ def make_assessment(
         evidence={
             "correlation_title": "Encoded PowerShell Execution",
             "matched_finding_ids": ("finding-1", "finding-2"),
+            "details": {
+                "commands": [
+                    {
+                        "image": "powershell.exe",
+                    }
+                ],
+            },
         },
     )
 
@@ -88,3 +95,12 @@ def test_alert_nested_risk_evidence_is_read_only():
 
     with pytest.raises(TypeError):
         alert.evidence["risk_evidence"]["correlation_title"] = "changed"
+
+
+def test_alert_deep_nested_risk_evidence_is_read_only():
+    alert = make_alert()
+
+    with pytest.raises(TypeError):
+        alert.evidence["risk_evidence"]["details"]["commands"][0][
+            "image"
+        ] = "cmd.exe"

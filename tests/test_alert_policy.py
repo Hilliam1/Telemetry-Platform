@@ -61,6 +61,19 @@ def test_invalid_threshold_is_rejected(
         )
 
 
+@pytest.mark.parametrize(
+    "minimum_score",
+    (40.5, "40", None, True),
+)
+def test_non_integer_threshold_is_rejected(
+    minimum_score,
+):
+    with pytest.raises(TypeError):
+        AlertPolicy(
+            minimum_score=minimum_score
+        )
+
+
 def test_policy_builds_title_and_summary():
     policy = AlertPolicy()
     assessment = make_assessment(
