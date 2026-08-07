@@ -9,6 +9,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.alerts.models import AlertStatus
+from app.auth.dependencies import require_permission
+from app.auth.models import Identity, Permission
 from app.database import database_connection
 from app.detection.models import DetectionSeverity
 from app.intelligence.query_repository import (
@@ -38,6 +40,10 @@ def get_intelligence_repository() -> Iterator[
 IntelligenceRepositoryDependency = Annotated[
     IntelligenceQueryRepository,
     Depends(get_intelligence_repository),
+]
+IntelligenceReadDependency = Annotated[
+    Identity,
+    Depends(require_permission(Permission.INTELLIGENCE_READ)),
 ]
 LimitQuery = Annotated[
     int,
@@ -72,6 +78,7 @@ AlertStatusQuery = Annotated[
     response_model=list[DetectionFindingResponse],
 )
 def get_detections(
+    _: IntelligenceReadDependency,
     repository: IntelligenceRepositoryDependency,
     host: str | None = None,
     severity: SeverityQuery = None,
@@ -89,6 +96,7 @@ def get_detections(
     response_model=list[CorrelationMatchResponse],
 )
 def get_correlations(
+    _: IntelligenceReadDependency,
     repository: IntelligenceRepositoryDependency,
     host: str | None = None,
     severity: SeverityQuery = None,
@@ -106,6 +114,7 @@ def get_correlations(
     response_model=list[RiskAssessmentResponse],
 )
 def get_risk_assessments(
+    _: IntelligenceReadDependency,
     repository: IntelligenceRepositoryDependency,
     host: str | None = None,
     level: RiskLevelQuery = None,
@@ -125,6 +134,7 @@ def get_risk_assessments(
     response_model=list[AlertResponse],
 )
 def get_alerts(
+    _: IntelligenceReadDependency,
     repository: IntelligenceRepositoryDependency,
     host: str | None = None,
     status: AlertStatusQuery = None,
@@ -147,6 +157,7 @@ def get_alerts(
 )
 def get_alert(
     alert_uuid: UUID,
+    _: IntelligenceReadDependency,
     repository: IntelligenceRepositoryDependency,
 ):
     alert = repository.get_alert(alert_uuid)
