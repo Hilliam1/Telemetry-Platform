@@ -1,5 +1,6 @@
 import json
 from datetime import datetime, timezone
+from types import MappingProxyType
 from unittest.mock import MagicMock, Mock
 
 from app.detection.models import (
@@ -87,3 +88,76 @@ def test_insert_findings_returns_count():
 
     assert count == 2
     assert cursor.execute.call_count == 2
+
+
+def test_find_recent_findings_returns_empty_without_rule_ids():
+    repository, conn, _ = make_repository()
+
+    result = repository.find_recent_findings(
+        source_host="HOST-01",
+        rule_ids=(),
+        start_time=datetime.now(timezone.utc),
+        end_time=datetime.now(timezone.utc),
+    )
+
+    assert result == ()
+    conn.cursor.assert_not_called()
+
+
+def test_find_recent_findings_reconstructs_domain_objects():
+    repository, _, cursor = make_repository()
+    now = datetime.now(timezone.utc)
+
+    cursor.fetchall.return_value = [
+        (
+            "8d0ea328-ef8d-4bca-a56e-313ef8c8a870",
+            "TP-WIN-SYSMON-0002",
+            1,
+            "Encoded PowerShell Command",
+            "medium",
+            "HOST-01",
+            "sysmon",
+            1,
+            42,
+            now,
+            now,
+            "Encoded PowerShell was detected.",
+            json.dumps(["Decode the command."]),
+            json.dumps(
+                {
+                    "raw.event_data.CommandLine":
+                        "powershell.exe -enc SQBFAFgA"
+                }
+            ),
+            ["powershell", "encoded_command"],
+        )
+    ]
+
+    result = repository.find_recent_findings(
+        source_host="HOST-01",
+        rule_ids=("TP-WIN-SYSMON-0002",),
+        start_time=now,
+        end_time=now,
+    )
+
+    assert len(result) == 1
+    finding = result[0]
+    assert finding.finding_id == (
+        "8d0ea328-ef8d-4bca-a56e-313ef8c8a870"
+    )
+    assert finding.severity is DetectionSeverity.MEDIUM
+    assert finding.investigation_steps == (
+        "Decode the command.",
+    )
+    assert isinstance(finding.evidence, MappingProxyType)
+    assert finding.evidence[
+        "raw.event_data.CommandLine"
+    ] == "powershell.exe -enc SQBFAFgA"
+    assert finding.tags == (
+        "powershell",
+        "encoded_command",
+    )
+
+    parameters = cursor.execute.call_args.args[1]
+    assert parameters[0] == "HOST-01"
+    assert parameters[1] == ["TP-WIN-SYSMON-0002"]

@@ -41,6 +41,7 @@ def make_windows_handler(
     hostname="HOST-01",
     detection_engine=None,
     detection_repository=None,
+    intelligence_service=None,
 ) -> WindowsEventSourceHandler:
     if detection_engine is None:
         detection_engine = Mock()
@@ -49,11 +50,15 @@ def make_windows_handler(
     if detection_repository is None:
         detection_repository = Mock()
 
+    if intelligence_service is None:
+        intelligence_service = Mock()
+
     return WindowsEventSourceHandler(
         conn=conn,
         repository=repository,
         detection_engine=detection_engine,
         detection_repository=detection_repository,
+        intelligence_service=intelligence_service,
         reader=reader,
         parser=parser,
         state=state,
@@ -359,6 +364,7 @@ def test_windows_handler_persists_detection_findings():
     assert result == 1
     detection_engine.evaluate.assert_called_once_with(event)
     detection_repository.insert_findings.assert_called_once_with((finding,))
+    handler.intelligence_service.process.assert_called_once_with((finding,))
     conn.commit.assert_called_once_with()
     state.update_record_id.assert_called_once()
 
@@ -401,6 +407,47 @@ def test_detection_persistence_failure_rolls_back_and_keeps_checkpoint():
     )
 
     assert handler.ingest(source) == 0
+
+    conn.rollback.assert_called_once_with()
+    conn.commit.assert_not_called()
+    state.update_record_id.assert_not_called()
+    state.save.assert_not_called()
+
+
+def test_intelligence_failure_rolls_back_and_keeps_checkpoint():
+    conn = Mock()
+    repository = Mock()
+    detection_engine = Mock()
+    detection_repository = Mock()
+    intelligence_service = Mock()
+    reader = Mock()
+    parser = Mock()
+    state = Mock()
+
+    finding = Mock()
+    state.get_last_record_id.return_value = 40
+    reader.read_channel.return_value = [
+        "<Event>one</Event>",
+    ]
+    parser.parse.return_value = make_parsed_event(41)
+    detection_engine.evaluate.return_value = (finding,)
+    intelligence_service.process.side_effect = RuntimeError(
+        "risk persistence failed"
+    )
+
+    handler = make_windows_handler(
+        conn=conn,
+        repository=repository,
+        detection_engine=detection_engine,
+        detection_repository=detection_repository,
+        intelligence_service=intelligence_service,
+        reader=reader,
+        parser=parser,
+        state=state,
+        hostname="HOST-01",
+    )
+
+    assert handler.ingest(make_windows_source()) == 0
 
     conn.rollback.assert_called_once_with()
     conn.commit.assert_not_called()

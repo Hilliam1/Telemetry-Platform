@@ -91,6 +91,7 @@ Stores deterministic correlation matches produced from detection findings.
 Expected fields:
 
 - `correlation_uuid`
+- `correlation_key`
 - `rule_id`
 - `rule_version`
 - `title`
@@ -189,7 +190,11 @@ This prevents the collector from advancing its checkpoint when database writes
 fail. If detection finding persistence fails, the source transaction rolls back
 with the raw event and process rows.
 
-Phase 15 does not connect historical correlation to the live collector yet.
-Correlation matches, risk assessments, and alerts are persistable through
-repositories, but orchestration that loads historical findings and commits the
-full intelligence chain is planned for a later phase.
+Phase 16 connects historical detection lookup to the live Windows source
+transaction. The intelligence service can query previously committed findings
+and newly staged findings on the same PostgreSQL connection before the source
+transaction commits.
+
+Correlation deduplication is handled by `correlation_key`, a stable SHA-256
+fingerprint of the correlation rule identity, host, event window, and matched
+finding IDs. The database enforces uniqueness for non-null keys.

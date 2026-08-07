@@ -69,7 +69,8 @@ the same host.
 
 ## Current Limitations
 
-- The collector does not invoke the Risk Engine.
+- Live risk assessment is invoked through `IntelligenceService`.
+- The collector does not call the risk engine directly.
 - Risk repository methods do not commit or roll back.
 - MITRE ATT&CK is not yet integrated.
 - CVSS is not yet integrated.

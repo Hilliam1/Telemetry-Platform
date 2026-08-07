@@ -29,7 +29,8 @@ After Phase 13, the platform has an isolated risk package that can:
 6. Assign a normalized `RiskLevel`.
 7. Preserve the explanation and evidence behind the score.
 
-The collector does not invoke the risk engine yet.
+Phase 16 invokes risk assessment through `IntelligenceService`; the collector
+does not call the risk engine directly.
 
 ## Added Package
 

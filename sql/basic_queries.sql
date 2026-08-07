@@ -113,6 +113,7 @@ LIMIT 50;
 -- Recent correlation matches
 SELECT
     correlation_uuid,
+    correlation_key,
     rule_id,
     rule_version,
     title,

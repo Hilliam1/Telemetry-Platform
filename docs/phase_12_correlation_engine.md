@@ -18,7 +18,8 @@ After Phase 12, the platform has an isolated correlation package that can:
 5. Preserve matched finding IDs.
 6. Return immutable `CorrelationMatch` objects.
 
-The collector does not invoke the correlation engine yet.
+Phase 16 invokes correlation through `IntelligenceService`; the collector does
+not call the correlation engine directly.
 
 ## Added Package
 

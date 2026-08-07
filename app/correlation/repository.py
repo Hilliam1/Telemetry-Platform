@@ -8,6 +8,7 @@ from typing import Any
 
 from psycopg2.extensions import connection
 
+from app.correlation.identity import correlation_key
 from app.correlation.models import CorrelationMatch
 
 
@@ -39,12 +40,15 @@ class CorrelationRepository:
     def insert_match(
         self,
         match: CorrelationMatch,
-    ) -> None:
+    ) -> bool:
+        key = correlation_key(match)
+
         with self.conn.cursor() as cur:
             cur.execute(
                 """
                 INSERT INTO correlation_matches (
                     correlation_uuid,
+                    correlation_key,
                     rule_id,
                     rule_version,
                     title,
@@ -61,12 +65,18 @@ class CorrelationRepository:
                 )
                 VALUES (
                     %s, %s, %s, %s, %s,
-                    %s, %s, %s, %s::uuid[], %s::text[],
-                    %s, %s::jsonb, %s::jsonb, %s::text[]
+                    %s, %s, %s, %s, %s::uuid[],
+                    %s::text[], %s,
+                    %s::jsonb, %s::jsonb, %s::text[]
                 )
+                ON CONFLICT (correlation_key)
+                WHERE correlation_key IS NOT NULL
+                DO NOTHING
+                RETURNING id
                 """,
                 (
                     match.correlation_id,
+                    key,
                     match.rule_id,
                     match.rule_version,
                     match.title,
@@ -88,3 +98,5 @@ class CorrelationRepository:
                     list(match.tags),
                 ),
             )
+
+            return cur.fetchone() is not None
