@@ -1,8 +1,12 @@
-from app.database import database_connection
+# ruff: noqa: SIM117
+
 from fastapi import FastAPI
 
+from app.database import database_connection
+from app.routes.intelligence import router as intelligence_router
 
 app = FastAPI()
+app.include_router(intelligence_router)
 
 
 @app.get("/")
