@@ -5,7 +5,7 @@
 | Specification | `docs/01_System_Architecture.md` |
 | Version | 0.2 |
 | Status | Draft for architecture review |
-| Implements | Platform Phase 13 |
+| Implements | Platform Phase 14 |
 | Last Reviewed | August 2026 |
 | Purpose | Define the current system architecture, governing engineering principles, and planned evolution of the Telemetry Platform. |
 
@@ -52,7 +52,7 @@ Future versions are expected to add event correlation, detection rules, risk sco
 
 ### 1.3 Current Scope
 
-At the Phase 13 baseline, the platform includes:
+At the Phase 14 baseline, the platform includes:
 
 - Windows Event Log collection
 - host-health metric collection
@@ -66,10 +66,11 @@ At the Phase 13 baseline, the platform includes:
 - deterministic detection models, rules, evaluation, and finding persistence
 - deterministic in-memory correlation models, rules, and evaluation
 - deterministic in-memory risk models, policy, providers, and assessment
+- deterministic in-memory alert models, policy, and generation
 - unit testing for major components
 - technical repository documentation
 
-The platform intentionally does not yet include a production dashboard, alert engine, AI reasoning layer, or automated response engine. Phase 11 invokes deterministic detection during Windows event ingestion and persists findings. Phase 12 and Phase 13 add isolated in-memory correlation and risk foundations, but those foundations are not yet invoked by the collector, persisted, or exposed through the API.
+The platform intentionally does not yet include a production dashboard, alert persistence, notification delivery, AI reasoning layer, or automated response engine. Phase 11 invokes deterministic detection during Windows event ingestion and persists findings. Phase 12, Phase 13, and Phase 14 add isolated in-memory correlation, risk, and alert foundations, but those foundations are not yet invoked by the collector, persisted, or exposed through the API.
 
 ### 1.4 Long-Term Vision
 
@@ -107,6 +108,7 @@ Each module should own one primary responsibility.
 | `app/collector.py` | Polling and run orchestration |
 | `app/sources.py` | Source definitions |
 | `app/source_handlers.py` | Source-specific execution |
+| `app/alerts/` | Deterministic alert models, policy, and generation |
 | `app/correlation/` | Deterministic correlation models, rules, and evaluation |
 | `app/detection/` | Deterministic detection models, rules, evaluation, and finding persistence |
 | `app/risk/` | Deterministic risk policy, providers, and score aggregation |
@@ -692,9 +694,9 @@ flowchart TD
 
 ---
 
-## 11. Detection, Correlation, and Risk Architecture
+## 11. Detection, Correlation, Risk, and Alert Architecture
 
-> **Implementation status:** Phase 13 implements deterministic detection evaluation and persistence, deterministic in-memory correlation, and deterministic in-memory risk assessment. Correlation matches and risk assessments are not yet persisted, invoked by the collector, exposed through the API, or converted into alerts.
+> **Implementation status:** Phase 14 implements deterministic detection evaluation and persistence, deterministic in-memory correlation, deterministic in-memory risk assessment, and deterministic in-memory alert generation. Correlation matches, risk assessments, and alerts are not yet persisted, invoked by the collector, exposed through the API, or delivered as notifications.
 
 
 ```mermaid
@@ -703,11 +705,12 @@ flowchart TD
  B --> C[Detection Findings]
  C --> D[Correlation]
  D --> E[Risk Assessment]
- E --> F[Alerts]
- F --> G[Incidents]
+ E --> F[Alert Policy]
+ F --> G[Alerts]
+ G --> H[Incidents]
 ```
 
-Current Phase 13 components include deterministic detection models, built-in PowerShell-focused rules, an in-memory detection engine, a detection repository that persists findings in the same transaction as their source events, an in-memory correlation engine for detection findings, and an in-memory risk engine for correlation matches. Planned components include correlation persistence, risk persistence, a detection rule registry, asset context service, user context service, alert repository, incident service, and suppression framework.
+Current Phase 14 components include deterministic detection models, built-in PowerShell-focused rules, an in-memory detection engine, a detection repository that persists findings in the same transaction as their source events, an in-memory correlation engine for detection findings, an in-memory risk engine for correlation matches, and an in-memory alert engine for qualifying risk assessments. Planned components include correlation persistence, risk persistence, alert persistence, a detection rule registry, asset context service, user context service, alert repository, incident service, notification delivery, and suppression framework.
 
 Detection principles:
 
@@ -720,12 +723,14 @@ Detection principles:
 - explicit false-positive handling
 - explainable risk contributions
 - final scoring owned by deterministic policy
+- operator-facing alerts created from deterministic policy
+- alert lifecycle transitions controlled by future services
 
 ---
 
 ## 12. Planned AI and Reasoning Architecture
 
-> **Implementation status:** Future-state design. AI reasoning, RAG, and recommendation services are not implemented in the Phase 13 baseline.
+> **Implementation status:** Future-state design. AI reasoning, RAG, and recommendation services are not implemented in the Phase 14 baseline.
 
 
 ```mermaid
@@ -815,7 +820,8 @@ A self-hosted security and operational intelligence assistant for small organiza
 | Phase 11 | Deterministic findings persisted with source event transactions |
 | Phase 12 | Deterministic in-memory correlation foundation introduced |
 | Phase 13 | Deterministic in-memory risk assessment foundation introduced |
-| Phase 14+ | Alerting, product hardening, and intelligence layers |
+| Phase 14 | Deterministic in-memory alert foundation introduced |
+| Phase 15+ | Alert persistence, notifications, product hardening, and intelligence layers |
 
 ---
 

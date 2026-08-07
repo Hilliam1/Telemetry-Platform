@@ -18,6 +18,7 @@ modules:
 - `app/health_metrics.py` collects CPU, memory, disk, and boot-time metrics.
 - `app/sources.py` defines supported telemetry sources and their dispatch categories.
 - `app/source_handlers.py` runs source-specific ingestion workflows.
+- `app/alerts/` creates operator-facing alerts from risk assessments in memory.
 - `app/detection/` evaluates deterministic rules and persists findings.
 - `app/correlation/` groups related detection findings in memory.
 - `app/risk/` assigns deterministic risk scores to correlation matches in memory.
@@ -41,6 +42,7 @@ Windows Event Logs -> XML -> Python dictionary -> detection findings -> PostgreS
 Host metrics -> Python dictionary -> PostgreSQL table
 Detection findings -> correlation rules -> in-memory correlation matches
 Correlation matches -> risk policy and providers -> in-memory risk assessments
+Risk assessments -> alert policy -> in-memory alerts
 ```
 
 ## Imports
@@ -494,6 +496,25 @@ or `-10`, with evidence explaining why.
 
 For now, risk assessments are returned in memory only. They are not persisted,
 shown by the API, turned into alerts, or sent to AI.
+
+### Alert Foundation
+
+Phase 14 adds `app/alerts/`.
+
+Alerts do not look at raw telemetry, detections, or correlations directly. They
+start from a `RiskAssessment`.
+
+The alert engine:
+
+1. Asks `AlertPolicy` whether the risk assessment qualifies.
+2. Returns `None` for low-risk assessments below the threshold.
+3. Creates an `Alert` for qualifying assessments.
+4. Starts every new alert in `AlertStatus.NEW`.
+5. Preserves the risk and correlation identity from the assessment.
+
+For now, alerts are returned in memory only. They are not persisted, exposed by
+the API, delivered through notifications, assigned to analysts, or mutated
+through lifecycle transitions.
 
 It skips events unless:
 

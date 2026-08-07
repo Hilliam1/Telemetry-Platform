@@ -4,7 +4,7 @@ Enterprise Telemetry Platform is a Python-based security telemetry project for c
 
 It is designed as an extensible platform for collecting, normalizing, storing, and querying system, security, and performance data across Windows, Linux, Proxmox, and future infrastructure.
 
-The current version focuses on Windows Event Log and Sysmon collection, PostgreSQL storage, process event extraction, collector state tracking, host health metrics, deterministic detection finding persistence, deterministic in-memory correlation, deterministic in-memory risk assessment, and a small FastAPI query service.
+The current version focuses on Windows Event Log and Sysmon collection, PostgreSQL storage, process event extraction, collector state tracking, host health metrics, deterministic detection finding persistence, deterministic in-memory correlation, deterministic in-memory risk assessment, deterministic in-memory alert generation, and a small FastAPI query service.
 
 ## Current Features
 
@@ -20,6 +20,7 @@ The current version focuses on Windows Event Log and Sysmon collection, PostgreS
 - Deterministic detection rules with PostgreSQL-backed finding persistence
 - Deterministic in-memory correlation of detection findings
 - Deterministic in-memory risk assessment for correlation matches
+- Deterministic in-memory alert generation from risk assessments
 
 ## Current Architecture
 
@@ -85,6 +86,30 @@ Persistence Repository
 PostgreSQL Database
 ```
 
+Current intelligence chain:
+
+```text
+Telemetry
+        |
+        v
+Normalization
+        |
+        v
+Detection
+        |
+        v
+Correlation
+        |
+        v
+Risk Assessment
+        |
+        v
+Alert Policy
+        |
+        v
+Alert
+```
+
 ## Target Architecture
 
 ```text
@@ -113,6 +138,11 @@ Telemetry-Platform/
 |-- app/
 |   |-- __init__.py
 |   |-- api.py
+|   |-- alerts/
+|   |   |-- __init__.py
+|   |   |-- engine.py
+|   |   |-- models.py
+|   |   `-- policy.py
 |   |-- collector.py
 |   |-- collector_factory.py
 |   |-- config.py
@@ -165,7 +195,8 @@ Telemetry-Platform/
 |   |-- 10_Detection_Engine.md
 |   |-- 11_Detection_Persistence.md
 |   |-- 12_Correlation_Engine.md
-|   `-- 13_Risk_Engine.md
+|   |-- 13_Risk_Engine.md
+|   `-- 14_Alert_Engine.md
 |-- diagrams/
 |-- screenshots/
 |-- tests/
