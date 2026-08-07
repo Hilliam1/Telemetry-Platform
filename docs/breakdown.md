@@ -635,7 +635,7 @@ The key comes from:
 TELEMETRY_API_KEY
 ```
 
-The auth service turns the key into an `Identity`. The route does not ask
+The auth service turns the key into a `Principal`. The route does not ask
 whether the identity is an administrator or analyst. It asks whether the
 identity has a permission:
 

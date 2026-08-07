@@ -5,77 +5,84 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi import Depends, HTTPException, Request, status
 
-from app.auth.models import Identity, Permission
-from app.auth.service import APIKeyAuthService
-from app.config import load_auth_settings
-
-bearer_scheme = HTTPBearer(
-    auto_error=False,
-)
+from app.auth.models import Permission, Principal
+from app.auth.service import AuthenticationService
 
 
-def get_auth_service() -> APIKeyAuthService:
-    return APIKeyAuthService.from_settings(
-        load_auth_settings()
-    )
+def get_authentication_service(
+    request: Request,
+) -> AuthenticationService:
+    return request.app.state.authentication_service
 
 
-AuthServiceDependency = Annotated[
-    APIKeyAuthService,
-    Depends(get_auth_service),
-]
-BearerCredentialsDependency = Annotated[
-    HTTPAuthorizationCredentials | None,
-    Depends(bearer_scheme),
+AuthenticationServiceDependency = Annotated[
+    AuthenticationService,
+    Depends(get_authentication_service),
 ]
 
 
-def get_current_identity(
-    credentials: BearerCredentialsDependency,
-    auth_service: AuthServiceDependency,
-) -> Identity:
-    if credentials is None:
+def get_current_principal(
+    request: Request,
+    auth_service: AuthenticationServiceDependency,
+) -> Principal:
+    authorization = request.headers.get("Authorization")
+
+    if not authorization:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication required",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    identity = auth_service.authenticate(
-        credentials.credentials
+    scheme, separator, credential = authorization.partition(
+        " "
     )
 
-    if identity is None:
+    if (
+        not separator
+        or scheme.casefold() != "bearer"
+        or not credential.strip()
+    ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid API key",
+            detail="Invalid authentication credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    return identity
+    principal = auth_service.authenticate_api_key(
+        credential.strip()
+    )
+
+    if principal is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    return principal
 
 
-CurrentIdentityDependency = Annotated[
-    Identity,
-    Depends(get_current_identity),
+CurrentPrincipalDependency = Annotated[
+    Principal,
+    Depends(get_current_principal),
 ]
 
 
 def require_permission(
     permission: Permission,
-) -> Callable[[CurrentIdentityDependency], Identity]:
+) -> Callable[[CurrentPrincipalDependency], Principal]:
     def dependency(
-        identity: CurrentIdentityDependency,
-    ) -> Identity:
-        if not identity.has_permission(permission):
+        principal: CurrentPrincipalDependency,
+    ) -> Principal:
+        if not principal.has_permission(permission):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Insufficient permissions",
             )
 
-        return identity
+        return principal
 
     return dependency

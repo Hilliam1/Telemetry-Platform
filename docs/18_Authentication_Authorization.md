@@ -9,10 +9,10 @@ The implementation is intentionally small:
 Bearer API key
         |
         v
-APIKeyAuthService
+AuthenticationService
         |
         v
-Identity
+Principal
         |
         v
 Permission check
@@ -133,7 +133,7 @@ py -m ruff check `
   app\routes\intelligence.py `
   app\config.py `
   tests\test_auth_models.py `
-  tests\test_permissions.py `
+  tests\test_auth_permissions.py `
   tests\test_auth_service.py `
   tests\test_intelligence_authorization.py `
   tests\test_intelligence_routes.py

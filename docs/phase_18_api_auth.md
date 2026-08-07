@@ -38,7 +38,7 @@ Updated modules:
 New tests:
 
 - `tests/test_auth_models.py`
-- `tests/test_permissions.py`
+- `tests/test_auth_permissions.py`
 - `tests/test_auth_service.py`
 - `tests/test_intelligence_authorization.py`
 
@@ -131,8 +131,10 @@ Tests verify:
 
 - role and permission values are stable
 - role-to-permission mapping is correct
-- API keys resolve to identities
-- missing API key configuration authenticates nobody
+- API keys resolve to principals
+- empty configured API keys fail clearly
+- malformed authorization headers return `401`
+- unauthorized requests do not reach repositories
 - missing `Authorization` header returns `401`
 - invalid API key returns `401`
 - valid identity without permission returns `403`
@@ -166,7 +168,7 @@ py -m ruff check `
   app\routes\intelligence.py `
   app\config.py `
   tests\test_auth_models.py `
-  tests\test_permissions.py `
+  tests\test_auth_permissions.py `
   tests\test_auth_service.py `
   tests\test_intelligence_authorization.py `
   tests\test_intelligence_routes.py

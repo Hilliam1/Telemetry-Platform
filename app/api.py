@@ -2,10 +2,22 @@
 
 from fastapi import FastAPI
 
+from app.auth.service import AuthenticationService
+from app.config import load_auth_settings
 from app.database import database_connection
 from app.routes.intelligence import router as intelligence_router
 
 app = FastAPI()
+auth_settings = load_auth_settings()
+
+if auth_settings.api_key is None:
+    raise ValueError(
+        "TELEMETRY_API_KEY must be set for API authentication"
+    )
+
+app.state.authentication_service = AuthenticationService(
+    api_key=auth_settings.api_key,
+)
 app.include_router(intelligence_router)
 
 

@@ -1,8 +1,15 @@
+import os
+
+os.environ.setdefault(
+    "TELEMETRY_API_KEY",
+    "test-suite-key",
+)
+
 from fastapi.testclient import TestClient
 
 from app.api import app
-from app.auth.dependencies import get_current_identity
-from app.auth.models import Identity, Permission, Role
+from app.auth.dependencies import get_current_principal
+from app.auth.models import Permission, Principal, Role
 from app.routes.intelligence import get_intelligence_repository
 
 
@@ -141,23 +148,22 @@ def make_client(
     raise_server_exceptions: bool = True,
 ):
     def override_identity():
-        return Identity(
-            subject="service:test",
+        return Principal(
+            principal_id="service:test",
             display_name="Test Service",
-            roles=(Role.SERVICE,),
+            role=Role.SERVICE,
             permissions=frozenset(
                 {
                     Permission.INTELLIGENCE_READ,
                 }
             ),
-            is_service=True,
         )
 
     def override_repository():
         yield repository
 
     app.dependency_overrides[
-        get_current_identity
+        get_current_principal
     ] = override_identity
     app.dependency_overrides[
         get_intelligence_repository

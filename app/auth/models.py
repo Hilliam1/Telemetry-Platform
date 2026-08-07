@@ -1,4 +1,4 @@
-"""Identity and role models for API authentication."""
+"""Authentication and authorization domain models."""
 
 from __future__ import annotations
 
@@ -27,14 +27,13 @@ class Permission(str, Enum):
 
 
 @dataclass(frozen=True)
-class Identity:
-    """Authenticated principal resolved from a credential."""
+class Principal:
+    """Authenticated application identity."""
 
-    subject: str
+    principal_id: str
     display_name: str
-    roles: tuple[Role, ...]
+    role: Role
     permissions: frozenset[Permission]
-    is_service: bool = False
 
     def has_permission(
         self,

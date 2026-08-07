@@ -113,7 +113,7 @@ Each module should own one primary responsibility.
 | `app/collector.py` | Polling and run orchestration |
 | `app/sources.py` | Source definitions |
 | `app/source_handlers.py` | Source-specific execution |
-| `app/auth/` | Identity, roles, permissions, API-key authentication, and authorization dependencies |
+| `app/auth/` | Principals, roles, permissions, API-key authentication, and authorization dependencies |
 | `app/alerts/` | Deterministic alert models, policy, generation, and persistence |
 | `app/correlation/` | Deterministic correlation models, rules, evaluation, and persistence |
 | `app/detection/` | Deterministic detection models, rules, evaluation, and finding persistence |

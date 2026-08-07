@@ -1,62 +1,40 @@
-from app.auth.models import Identity, Permission, Role
-from app.auth.permissions import permissions_for_roles
-from app.auth.service import APIKeyAuthService
-from app.config import AuthSettings
+import pytest
+
+from app.auth.models import Role
+from app.auth.service import AuthenticationService
 
 
-def test_service_identity_is_created_from_settings():
-    service = APIKeyAuthService.from_settings(
-        AuthSettings(
-            telemetry_api_key="valid-key",
-        )
+def test_valid_api_key_authenticates():
+    service = AuthenticationService(
+        api_key="secret",
     )
 
-    identity = service.authenticate("valid-key")
+    principal = service.authenticate_api_key("secret")
 
-    assert identity is not None
-    assert identity.subject == "service:telemetry-api"
-    assert identity.roles == (Role.SERVICE,)
-    assert identity.permissions == permissions_for_roles(
-        (Role.SERVICE,)
-    )
-    assert identity.is_service
+    assert principal is not None
+    assert principal.role is Role.SERVICE
+    assert principal.principal_id == "configured-api-client"
 
 
-def test_missing_api_key_disables_authentication():
-    service = APIKeyAuthService.from_settings(
-        AuthSettings(
-            telemetry_api_key=None,
-        )
+def test_invalid_api_key_is_rejected():
+    service = AuthenticationService(
+        api_key="secret",
     )
 
-    assert service.authenticate("valid-key") is None
+    assert service.authenticate_api_key("wrong") is None
 
 
-def test_bad_api_key_returns_none():
-    service = APIKeyAuthService.from_settings(
-        AuthSettings(
-            telemetry_api_key="valid-key",
-        )
+def test_empty_presented_key_is_rejected():
+    service = AuthenticationService(
+        api_key="secret",
     )
 
-    assert service.authenticate("bad-key") is None
+    assert service.authenticate_api_key("") is None
 
 
-def test_custom_identity_can_be_resolved():
-    identity = Identity(
-        subject="user:viewer",
-        display_name="Viewer",
-        roles=(Role.VIEWER,),
-        permissions=frozenset(
-            {
-                Permission.INTELLIGENCE_READ,
-            }
-        ),
-    )
-    service = APIKeyAuthService(
-        {
-            "viewer-key": identity,
-        }
-    )
-
-    assert service.authenticate("viewer-key") is identity
+def test_empty_configured_key_is_rejected():
+    with pytest.raises(
+        ValueError,
+        match="Authentication API key cannot be empty",
+    ):
+        AuthenticationService(api_key="")

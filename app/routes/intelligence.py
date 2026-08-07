@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.alerts.models import AlertStatus
 from app.auth.dependencies import require_permission
-from app.auth.models import Identity, Permission
+from app.auth.models import Permission, Principal
 from app.database import database_connection
 from app.detection.models import DetectionSeverity
 from app.intelligence.query_repository import (
@@ -42,7 +42,7 @@ IntelligenceRepositoryDependency = Annotated[
     Depends(get_intelligence_repository),
 ]
 IntelligenceReadDependency = Annotated[
-    Identity,
+    Principal,
     Depends(require_permission(Permission.INTELLIGENCE_READ)),
 ]
 LimitQuery = Annotated[

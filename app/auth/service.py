@@ -1,51 +1,46 @@
-"""API-key authentication service."""
+"""Authentication service for API credentials."""
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from hmac import compare_digest
+import hmac
 
-from app.auth.models import Identity, Role
-from app.auth.permissions import permissions_for_roles
-from app.config import AuthSettings
+from app.auth.models import Principal, Role
+from app.auth.permissions import permissions_for_role
 
 
-class APIKeyAuthService:
-    """Resolve bearer API keys into authenticated identities."""
+class AuthenticationService:
+    """Authenticate configured API credentials."""
 
     def __init__(
         self,
-        identities_by_api_key: Mapping[str, Identity],
+        *,
+        api_key: str,
     ) -> None:
-        self.identities_by_api_key = dict(identities_by_api_key)
-
-    @classmethod
-    def from_settings(
-        cls,
-        settings: AuthSettings,
-    ) -> APIKeyAuthService:
-        identities_by_api_key: dict[str, Identity] = {}
-
-        if settings.telemetry_api_key is not None:
-            roles = (Role.SERVICE,)
-            identities_by_api_key[settings.telemetry_api_key] = Identity(
-                subject="service:telemetry-api",
-                display_name="Telemetry API Service",
-                roles=roles,
-                permissions=permissions_for_roles(roles),
-                is_service=True,
+        if not api_key.strip():
+            raise ValueError(
+                "Authentication API key cannot be empty"
             )
 
-        return cls(identities_by_api_key)
+        self._api_key = api_key
 
-    def authenticate(
+    def authenticate_api_key(
         self,
-        api_key: str,
-    ) -> Identity | None:
-        for expected_key, identity in (
-            self.identities_by_api_key.items()
-        ):
-            if compare_digest(api_key, expected_key):
-                return identity
+        presented_key: str,
+    ) -> Principal | None:
+        if not presented_key:
+            return None
 
-        return None
+        if not hmac.compare_digest(
+            presented_key,
+            self._api_key,
+        ):
+            return None
+
+        role = Role.SERVICE
+
+        return Principal(
+            principal_id="configured-api-client",
+            display_name="Configured API Client",
+            role=role,
+            permissions=permissions_for_role(role),
+        )

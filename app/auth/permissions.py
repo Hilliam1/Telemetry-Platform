@@ -1,4 +1,4 @@
-"""Role-to-permission mapping for platform authorization."""
+"""Role-to-permission policy."""
 
 from __future__ import annotations
 
@@ -23,15 +23,7 @@ ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
             Permission.RESPONSE_EXECUTE,
         }
     ),
-    Role.ADMINISTRATOR: frozenset(
-        {
-            Permission.INTELLIGENCE_READ,
-            Permission.ALERTS_INVESTIGATE,
-            Permission.RESPONSE_EXECUTE,
-            Permission.USERS_MANAGE,
-            Permission.SYSTEM_CONFIGURE,
-        }
-    ),
+    Role.ADMINISTRATOR: frozenset(Permission),
     Role.SERVICE: frozenset(
         {
             Permission.INTELLIGENCE_READ,
@@ -40,12 +32,7 @@ ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
 }
 
 
-def permissions_for_roles(
-    roles: tuple[Role, ...],
+def permissions_for_role(
+    role: Role,
 ) -> frozenset[Permission]:
-    permissions: set[Permission] = set()
-
-    for role in roles:
-        permissions.update(ROLE_PERMISSIONS[role])
-
-    return frozenset(permissions)
+    return ROLE_PERMISSIONS[role]

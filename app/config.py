@@ -24,7 +24,7 @@ class CollectorSettings:
 
 @dataclass(frozen=True)
 class AuthSettings:
-    telemetry_api_key: str | None
+    api_key: str | None
 
 
 DEFAULT_SOURCES = (
@@ -77,5 +77,5 @@ def load_auth_settings() -> AuthSettings:
         api_key = api_key.strip() or None
 
     return AuthSettings(
-        telemetry_api_key=api_key,
+        api_key=api_key,
     )
