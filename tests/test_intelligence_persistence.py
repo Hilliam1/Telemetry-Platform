@@ -20,6 +20,7 @@ def make_encoded_powershell_finding(
     *,
     finding_id: str,
     event_time: datetime,
+    event_record_id: int,
 ) -> DetectionFinding:
     return DetectionFinding(
         finding_id=finding_id,
@@ -30,7 +31,7 @@ def make_encoded_powershell_finding(
         source_host="HOST-01",
         source_type="sysmon",
         event_id=1,
-        event_record_id=42,
+        event_record_id=event_record_id,
         event_time=event_time,
         evaluated_at=event_time,
         explanation="Encoded PowerShell was detected.",
@@ -49,10 +50,12 @@ def test_intelligence_outputs_can_be_persisted_without_database():
         make_encoded_powershell_finding(
             finding_id="7de59353-d009-4ff1-b3ef-10c8d1585647",
             event_time=started_at,
+            event_record_id=42,
         ),
         make_encoded_powershell_finding(
             finding_id="78d21297-731e-4265-abf3-4dd3fb0560c1",
             event_time=started_at + timedelta(minutes=5),
+            event_record_id=43,
         ),
     )
 

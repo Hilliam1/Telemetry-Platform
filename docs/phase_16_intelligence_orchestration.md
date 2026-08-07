@@ -24,6 +24,7 @@ New helper:
 New migration:
 
 - `sql/009_add_correlation_deduplication.sql`
+- `sql/010_add_detection_finding_deduplication.sql`
 
 Updated modules:
 
@@ -66,6 +67,23 @@ This lets correlation use older persisted findings plus current findings staged
 earlier in the same transaction.
 
 ## Correlation Deduplication
+
+`DetectionRepository.insert_finding()` now uses the stable source-event and rule
+identity to avoid inserting the same finding twice when `event_record_id` is
+available.
+
+The stable detection identity is:
+
+- rule ID
+- rule version
+- source host
+- source type
+- Event ID
+- Event Record ID
+
+`insert_finding()` returns `True` for a new row and `False` for an already-seen
+source/rule finding. `insert_findings()` counts only rows that were actually
+inserted.
 
 `correlation_key()` creates a stable SHA-256 fingerprint for a correlation
 result.
@@ -129,6 +147,7 @@ Tests verify:
 - findings outside the window do not correlate
 - another host is ignored
 - duplicate correlations do not create duplicate risk or alerts
+- replayed duplicate findings do not create false repeated-activity correlations
 - low-risk correlations persist risk without creating alerts
 - matches must include new evidence
 - intelligence failures roll back and prevent checkpoint advancement
@@ -145,6 +164,5 @@ Phase 16 does not add:
 - incidents
 - MITRE provider
 - asset or identity context providers
-- stable detection finding identity
 - AI reasoning
 - automated response

@@ -364,3 +364,36 @@ def test_correlation_must_include_new_finding():
     correlation_repository.insert_match.assert_not_called()
     risk_repository.insert_assessment.assert_not_called()
     alert_repository.insert_alert.assert_not_called()
+
+
+def test_replayed_same_event_does_not_create_repeated_activity():
+    now = datetime.now(timezone.utc)
+    first = make_finding(
+        finding_id="0b54437d-01be-4316-a94d-52fcf1d3f137",
+        event_time=now,
+        event_record_id=100,
+    )
+    replay = make_finding(
+        finding_id="86d76e7c-38ef-40c1-8350-c1405e6f44e9",
+        event_time=now,
+        event_record_id=100,
+    )
+    (
+        service,
+        detection_repository,
+        correlation_repository,
+        risk_repository,
+        alert_repository,
+    ) = make_service()
+
+    detection_repository.find_recent_findings.return_value = (
+        first,
+        replay,
+    )
+
+    result = service.process((replay,))
+
+    assert result.correlations_created == 0
+    correlation_repository.insert_match.assert_not_called()
+    risk_repository.insert_assessment.assert_not_called()
+    alert_repository.insert_alert.assert_not_called()

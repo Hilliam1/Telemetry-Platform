@@ -11,6 +11,7 @@ The repository includes starter SQL files in `sql/`.
 - `007_create_alerts.sql` creates the durable alerts table.
 - `008_create_intelligence_indexes.sql` adds intelligence-layer indexes.
 - `009_add_correlation_deduplication.sql` adds stable correlation deduplication keys.
+- `010_add_detection_finding_deduplication.sql` adds stable detection finding deduplication for findings tied to Event Record IDs.
 - `basic_queries.sql` contains common operational and analysis queries.
 
 Apply the numbered SQL files in order:
@@ -25,6 +26,7 @@ psql -U postgres -d sysmon_lab -f .\sql\006_create_risk_assessments.sql
 psql -U postgres -d sysmon_lab -f .\sql\007_create_alerts.sql
 psql -U postgres -d sysmon_lab -f .\sql\008_create_intelligence_indexes.sql
 psql -U postgres -d sysmon_lab -f .\sql\009_add_correlation_deduplication.sql
+psql -U postgres -d sysmon_lab -f .\sql\010_add_detection_finding_deduplication.sql
 ```
 
 ## Latest Events

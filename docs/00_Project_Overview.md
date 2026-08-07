@@ -28,6 +28,7 @@ The project starts with Windows telemetry because Windows Event Logs and Sysmon 
 - Deterministic risk assessment foundation with persistence support
 - Deterministic alert generation foundation with persistence support
 - Live deterministic intelligence orchestration for Windows event findings
+- Stable detection finding deduplication for findings tied to Event Record IDs
 - Stable correlation deduplication keys
 - Modular collector internals for configuration, database connections, collector orchestration, dependency construction, state, reading, parsing, host metrics, source handlers, and persistence
 

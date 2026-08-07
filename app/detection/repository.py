@@ -25,7 +25,7 @@ class DetectionRepository:
     def insert_finding(
         self,
         finding: DetectionFinding,
-    ) -> None:
+    ) -> bool:
         with self.conn.cursor() as cur:
             cur.execute(
                 """
@@ -51,6 +51,17 @@ class DetectionRepository:
                     %s, %s, %s, %s, %s,
                     %s, %s, %s::jsonb, %s::jsonb, %s
                 )
+                ON CONFLICT (
+                    rule_id,
+                    rule_version,
+                    source_host,
+                    source_type,
+                    event_id,
+                    event_record_id
+                )
+                WHERE event_record_id IS NOT NULL
+                DO NOTHING
+                RETURNING id
                 """,
                 (
                     finding.finding_id,
@@ -77,6 +88,8 @@ class DetectionRepository:
                 ),
             )
 
+            return cur.fetchone() is not None
+
     def insert_findings(
         self,
         findings: Iterable[DetectionFinding],
@@ -84,8 +97,8 @@ class DetectionRepository:
         inserted = 0
 
         for finding in findings:
-            self.insert_finding(finding)
-            inserted += 1
+            if self.insert_finding(finding):
+                inserted += 1
 
         return inserted
 

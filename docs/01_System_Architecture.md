@@ -68,6 +68,7 @@ At the Phase 16 baseline, the platform includes:
 - deterministic risk models, policy, providers, assessment, and persistence support
 - deterministic alert models, policy, generation, and persistence support
 - live deterministic intelligence orchestration during Windows ingestion
+- stable detection finding deduplication for source events with Event Record IDs
 - stable correlation deduplication keys
 - unit testing for major components
 - technical repository documentation

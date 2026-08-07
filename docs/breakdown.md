@@ -579,6 +579,12 @@ Correlation rows use a stable `correlation_key` so the same source events do
 not create duplicate risk assessments or alerts on later polling cycles. The
 key is based on event identity, not random finding UUIDs.
 
+Detection finding rows now have their own replay protection too. If the same
+Windows event is read again and produces the same detection rule finding,
+PostgreSQL can reject the duplicate based on the rule, host, source type, Event
+ID, and Event Record ID. That keeps replayed findings from pretending to be two
+separate events during temporal correlation.
+
 It skips events unless:
 
 ```python

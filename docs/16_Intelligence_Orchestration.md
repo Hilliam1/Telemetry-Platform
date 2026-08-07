@@ -96,7 +96,26 @@ candidate findings.
 
 ## Duplicate Prevention
 
-Phase 16 adds `correlation_key`.
+Phase 16 adds replay protection at both the detection and correlation layers.
+
+Detection findings are deduplicated by stable source-event and rule identity
+when `event_record_id` is available:
+
+- detection rule ID
+- detection rule version
+- source host
+- source type
+- Event ID
+- Event Record ID
+
+`DetectionRepository.insert_finding()` returns:
+
+- `True` when a new finding row was inserted
+- `False` when the same source event already produced the same rule finding
+
+Batch insertion counts only rows that were actually inserted.
+
+Phase 16 also adds `correlation_key`.
 
 The key is a stable SHA-256 fingerprint based on:
 
@@ -181,9 +200,10 @@ Phase 16 does not add:
 - AI reasoning
 - automated response
 
-Correlation deduplication uses stable source-event identity instead of random
-finding UUIDs. A replay that regenerates detection finding UUIDs for the same
-source events should produce the same correlation key.
+Detection and correlation deduplication use stable source-event identity instead
+of random generated UUIDs. A replay that regenerates detection finding UUIDs for
+the same source events should not create duplicate finding rows, duplicate
+correlation rows, duplicate risk assessments, or duplicate alerts.
 
 ## Validation
 
@@ -199,4 +219,5 @@ Apply the Phase 16 migration:
 
 ```powershell
 psql -U postgres -d sysmon_lab -f .\sql\009_add_correlation_deduplication.sql
+psql -U postgres -d sysmon_lab -f .\sql\010_add_detection_finding_deduplication.sql
 ```
