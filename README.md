@@ -4,7 +4,7 @@ Enterprise Telemetry Platform is a Python-based security telemetry project for c
 
 It is designed as an extensible platform for collecting, normalizing, storing, and querying system, security, and performance data across Windows, Linux, Proxmox, and future infrastructure.
 
-The current version focuses on Windows Event Log and Sysmon collection, PostgreSQL storage, process event extraction, collector state tracking, host health metrics, deterministic detection finding persistence, live deterministic intelligence orchestration, persistable correlation matches, persistable risk assessments, persistable alerts, and a small FastAPI query service.
+The current version focuses on Windows Event Log and Sysmon collection, PostgreSQL storage, process event extraction, collector state tracking, host health metrics, deterministic detection finding persistence, live deterministic intelligence orchestration, persistable correlation matches, persistable risk assessments, persistable alerts, and read-only versioned intelligence API routes.
 
 ## Current Features
 
@@ -24,6 +24,7 @@ The current version focuses on Windows Event Log and Sysmon collection, PostgreS
 - Live intelligence orchestration inside the Windows source transaction
 - Detection finding deduplication with stable source-event and rule identity
 - Correlation deduplication with stable deterministic correlation keys
+- Read-only `/api/v1` intelligence endpoints for detections, correlations, risk assessments, and alerts
 
 ## Current Architecture
 
@@ -145,6 +146,39 @@ Telemetry Persistence        Detection
                          Alert Persistence
 ```
 
+Current product-facing intelligence flow:
+
+```text
+Telemetry Sources
+        |
+        v
+Collection
+        |
+        v
+Normalization
+        |
+        v
+Detection
+        |
+        v
+Correlation
+        |
+        v
+Risk
+        |
+        v
+Alerts
+        |
+        v
+PostgreSQL
+        |
+        v
+Versioned REST API
+        |
+        v
+Dashboard / Mobile / Automation
+```
+
 ## Planned Target Architecture
 
 ```text
@@ -216,6 +250,8 @@ Telemetry-Platform/
 |   |-- intelligence/
 |   |   |-- __init__.py
 |   |   |-- models.py
+|   |   |-- query_repository.py
+|   |   |-- schemas.py
 |   |   `-- service.py
 |   |-- repository.py
 |   |-- risk/
@@ -225,6 +261,9 @@ Telemetry-Platform/
 |   |   |-- policy.py
 |   |   |-- providers.py
 |   |   `-- repository.py
+|   |-- routes/
+|   |   |-- __init__.py
+|   |   `-- intelligence.py
 |   |-- source_handlers.py
 |   |-- sources.py
 |   |-- state.py
@@ -262,7 +301,8 @@ Telemetry-Platform/
 |   |-- 13_Risk_Engine.md
 |   |-- 14_Alert_Engine.md
 |   |-- 15_Intelligence_Persistence.md
-|   `-- 16_Intelligence_Orchestration.md
+|   |-- 16_Intelligence_Orchestration.md
+|   `-- 17_Intelligence_API.md
 |-- diagrams/
 |-- screenshots/
 |-- tests/

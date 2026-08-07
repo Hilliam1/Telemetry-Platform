@@ -48,6 +48,67 @@ Returns the latest host metric record.
 
 Returns the latest 100 host metric records.
 
+## Versioned Intelligence Endpoints
+
+Phase 17 adds read-only intelligence endpoints under `/api/v1`.
+
+### `GET /api/v1/detections`
+
+Returns persisted detection findings.
+
+Optional filters:
+
+- `host`
+- `severity`
+- `limit`
+
+### `GET /api/v1/correlations`
+
+Returns persisted correlation matches.
+
+Optional filters:
+
+- `host`
+- `severity`
+- `limit`
+
+### `GET /api/v1/risk-assessments`
+
+Returns persisted risk assessments.
+
+Optional filters:
+
+- `host`
+- `level`
+- `minimum_score`
+- `limit`
+
+### `GET /api/v1/alerts`
+
+Returns persisted alerts.
+
+Optional filters:
+
+- `host`
+- `status`
+- `risk_level`
+- `minimum_score`
+- `limit`
+
+### `GET /api/v1/alerts/{alert_uuid}`
+
+Returns one alert by UUID.
+
+Missing alerts return `404`. Malformed UUIDs return `422`.
+
+Severity, level, risk-level, and status filters are validated against platform
+enums. Unknown values return `422`.
+
+The intelligence API is read-only. It does not acknowledge, resolve, suppress,
+or deliver alerts.
+
 ## Future Notes
 
-The API should add health checks, response models, pagination, time-range filters, error handling, authentication planning, and collector-run endpoints.
+The API should add health checks, pagination, time-range filters,
+authentication planning, collector-run endpoints, and future alert lifecycle
+routes.

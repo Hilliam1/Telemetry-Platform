@@ -19,6 +19,9 @@ modules:
 - `app/sources.py` defines supported telemetry sources and their dispatch categories.
 - `app/source_handlers.py` runs source-specific ingestion workflows.
 - `app/intelligence/` coordinates detection findings through correlation, risk, and alert persistence.
+- `app/intelligence/query_repository.py` reads persisted intelligence for the API.
+- `app/intelligence/schemas.py` defines typed intelligence API responses.
+- `app/routes/intelligence.py` exposes read-only `/api/v1` intelligence routes.
 - `app/alerts/` creates operator-facing alerts from risk assessments and can persist them.
 - `app/detection/` evaluates deterministic rules and persists findings.
 - `app/correlation/` groups related detection findings and can persist correlation matches.
@@ -44,6 +47,7 @@ Host metrics -> Python dictionary -> PostgreSQL table
 Detection findings -> intelligence service -> correlation matches -> PostgreSQL table
 Correlation matches -> intelligence service -> risk assessments -> PostgreSQL table
 Risk assessments -> intelligence service -> alerts -> PostgreSQL table
+PostgreSQL intelligence tables -> query repository -> /api/v1 routes -> dashboard or mobile clients
 ```
 
 ## Imports
@@ -529,8 +533,8 @@ table. The alert still starts as `AlertStatus.NEW`, and lifecycle changes such
 as acknowledgement, suppression, assignment, and resolution are future work.
 
 Phase 16 lets the intelligence service create and persist alerts from qualifying
-risk assessments. Alerts are not yet exposed by the API or delivered through
-notifications.
+risk assessments. Phase 17 exposes persisted alerts through read-only API
+routes, but notifications and alert lifecycle actions are still future work.
 
 ### Intelligence Persistence
 
@@ -584,6 +588,35 @@ Windows event is read again and produces the same detection rule finding,
 PostgreSQL can reject the duplicate based on the rule, host, source type, Event
 ID, and Event Record ID. That keeps replayed findings from pretending to be two
 separate events during temporal correlation.
+
+### Read-Only Intelligence API
+
+Phase 17 adds versioned API routes under:
+
+```text
+/api/v1
+```
+
+These routes let a dashboard, report, mobile client, or future automation read
+the intelligence results already saved in PostgreSQL.
+
+The current routes are:
+
+- `/api/v1/detections`
+- `/api/v1/correlations`
+- `/api/v1/risk-assessments`
+- `/api/v1/alerts`
+- `/api/v1/alerts/{alert_uuid}`
+
+The route functions do not write to the database and do not contain SQL.
+Instead, they call `IntelligenceQueryRepository`, which owns the read queries.
+
+The API validates untrusted input. For example, `limit=0`, `limit=501`,
+`minimum_score=-1`, `minimum_score=101`, and malformed alert UUIDs return
+validation errors.
+
+This phase does not acknowledge, suppress, resolve, or deliver alerts. It only
+makes persisted intelligence visible.
 
 It skips events unless:
 
