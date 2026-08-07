@@ -121,3 +121,17 @@ def test_duplicate_provider_names_are_rejected():
             policy=RiskPolicy(),
             providers=(first, second),
         )
+
+
+def test_empty_provider_name_is_rejected():
+    provider = Mock(spec=RiskProvider)
+    provider.name = " "
+
+    with pytest.raises(
+        ValueError,
+        match="Risk provider name cannot be empty",
+    ):
+        RiskEngine(
+            policy=RiskPolicy(),
+            providers=(provider,),
+        )
