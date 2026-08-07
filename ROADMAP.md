@@ -28,5 +28,6 @@
 - Wazuh integration
 - Detection engine
 - Alerting workflow
+- Stable detection finding identity for replay-safe finding deduplication
 - Docker deployment
 - Unit, parser, API, and database tests

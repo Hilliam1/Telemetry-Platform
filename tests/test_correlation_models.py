@@ -82,6 +82,28 @@ def test_correlation_preserves_finding_ids():
     }
 
 
+def test_correlation_preserves_stable_event_keys():
+    match = CorrelationMatch.from_findings(
+        rule=ENCODED_POWERSHELL_EXECUTION,
+        findings=(
+            make_finding(
+                "finding-1",
+                "TP-WIN-SYSMON-0001",
+            ),
+            make_finding(
+                "finding-2",
+                "TP-WIN-SYSMON-0002",
+            ),
+        ),
+        evidence={},
+    )
+
+    assert match.matched_event_keys == (
+        "HOST-01|sysmon|1|100|TP-WIN-SYSMON-0001|1",
+        "HOST-01|sysmon|1|100|TP-WIN-SYSMON-0002|1",
+    )
+
+
 def test_correlation_match_requires_at_least_one_finding():
     with pytest.raises(
         ValueError,

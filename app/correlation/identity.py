@@ -16,9 +16,7 @@ def correlation_key(
         match.rule_id,
         str(match.rule_version),
         match.source_host,
-        match.first_event_time.isoformat(),
-        match.last_event_time.isoformat(),
-        *sorted(match.matched_finding_ids),
+        *match.matched_event_keys,
     )
 
     payload = "|".join(parts)

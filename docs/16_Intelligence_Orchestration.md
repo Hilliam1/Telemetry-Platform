@@ -103,9 +103,16 @@ The key is a stable SHA-256 fingerprint based on:
 - correlation rule ID
 - correlation rule version
 - source host
-- first event time
-- last event time
-- matched finding IDs
+- matched source-event identities
+
+Each matched source-event identity contains:
+
+- source host
+- source type
+- Event ID
+- Event Record ID
+- detection rule ID
+- detection rule version
 
 `CorrelationRepository.insert_match()` returns:
 
@@ -174,9 +181,9 @@ Phase 16 does not add:
 - AI reasoning
 - automated response
 
-Correlation deduplication assumes stable finding identities during normal
-replay. If finding IDs are regenerated for the same historical evidence after a
-database restore or manual data rewrite, the deduplication key can change.
+Correlation deduplication uses stable source-event identity instead of random
+finding UUIDs. A replay that regenerates detection finding UUIDs for the same
+source events should produce the same correlation key.
 
 ## Validation
 

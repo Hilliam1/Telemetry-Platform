@@ -196,5 +196,7 @@ and newly staged findings on the same PostgreSQL connection before the source
 transaction commits.
 
 Correlation deduplication is handled by `correlation_key`, a stable SHA-256
-fingerprint of the correlation rule identity, host, event window, and matched
-finding IDs. The database enforces uniqueness for non-null keys.
+fingerprint of the correlation rule identity, host, and matched source-event
+identities. The key does not depend on generated finding UUIDs, so replaying the
+same source event after a checkpoint save failure should not create duplicate
+correlations. The database enforces uniqueness for non-null keys.

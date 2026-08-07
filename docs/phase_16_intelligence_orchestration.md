@@ -70,6 +70,10 @@ earlier in the same transaction.
 `correlation_key()` creates a stable SHA-256 fingerprint for a correlation
 result.
 
+The key uses stable source-event identities, not generated finding UUIDs. This
+keeps deduplication stable when an event is safely replayed after a checkpoint
+save failure.
+
 `CorrelationRepository.insert_match()` inserts with:
 
 ```text
@@ -141,5 +145,6 @@ Phase 16 does not add:
 - incidents
 - MITRE provider
 - asset or identity context providers
+- stable detection finding identity
 - AI reasoning
 - automated response

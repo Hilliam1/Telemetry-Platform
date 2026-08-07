@@ -575,8 +575,9 @@ transaction. That means raw telemetry, process rows, detection findings,
 correlations, risk assessments, and alerts all succeed together or fail
 together. The checkpoint advances only after commit succeeds.
 
-Correlation rows use a stable `correlation_key` so the same historical findings
-do not create duplicate risk assessments or alerts on later polling cycles.
+Correlation rows use a stable `correlation_key` so the same source events do
+not create duplicate risk assessments or alerts on later polling cycles. The
+key is based on event identity, not random finding UUIDs.
 
 It skips events unless:
 
