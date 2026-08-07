@@ -2,12 +2,13 @@
 
 ## Current Status
 
-Phase 12 introduces deterministic, in-memory correlation of
-DetectionFinding objects.
+Phase 12 introduced deterministic, in-memory correlation of
+DetectionFinding objects. Phase 15 adds PostgreSQL persistence support for
+correlation matches through `app/correlation/repository.py`.
 
 The correlation subsystem consumes already-created `DetectionFinding` objects.
-It does not read raw telemetry, query PostgreSQL, invoke the collector, expose
-API routes, create alerts, calculate risk, or call AI services.
+It does not read raw telemetry, invoke the collector, expose API routes, create
+alerts, calculate risk, or call AI services.
 
 ## Responsibilities
 
@@ -59,13 +60,18 @@ Evaluates findings against enabled rules. It currently supports:
 
 Invalid rule definitions are rejected during engine construction.
 
+### `app/correlation/repository.py`
+
+Persists `CorrelationMatch` objects to the `correlation_matches` table using an
+existing PostgreSQL transaction.
+
 ## Current Limitations
 
-- Correlation matches are not persisted.
+- Live historical correlation is not yet connected to the collector.
 - The collector does not invoke the correlation engine.
 - No API routes expose correlation matches.
-- No risk score is calculated.
-- No alert or incident is created.
+- Correlation repository methods do not commit or roll back.
+- No incident is created.
 - No AI reasoning is used.
 
 ## Validation

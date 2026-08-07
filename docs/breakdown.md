@@ -18,10 +18,10 @@ modules:
 - `app/health_metrics.py` collects CPU, memory, disk, and boot-time metrics.
 - `app/sources.py` defines supported telemetry sources and their dispatch categories.
 - `app/source_handlers.py` runs source-specific ingestion workflows.
-- `app/alerts/` creates operator-facing alerts from risk assessments in memory.
+- `app/alerts/` creates operator-facing alerts from risk assessments and can persist them.
 - `app/detection/` evaluates deterministic rules and persists findings.
-- `app/correlation/` groups related detection findings in memory.
-- `app/risk/` assigns deterministic risk scores to correlation matches in memory.
+- `app/correlation/` groups related detection findings and can persist correlation matches.
+- `app/risk/` assigns deterministic risk scores to correlation matches and can persist assessments.
 - `app/state.py` saves collector checkpoints.
 
 The full collector system:
@@ -40,9 +40,9 @@ The pipeline looks like this:
 ```text
 Windows Event Logs -> XML -> Python dictionary -> detection findings -> PostgreSQL tables
 Host metrics -> Python dictionary -> PostgreSQL table
-Detection findings -> correlation rules -> in-memory correlation matches
-Correlation matches -> risk policy and providers -> in-memory risk assessments
-Risk assessments -> alert policy -> in-memory alerts
+Detection findings -> correlation rules -> correlation matches -> PostgreSQL table
+Correlation matches -> risk policy and providers -> risk assessments -> PostgreSQL table
+Risk assessments -> alert policy -> alerts -> PostgreSQL table
 ```
 
 ## Imports
@@ -473,8 +473,12 @@ Did the same event produce both a PowerShell finding and an encoded-command find
 Did the same host produce repeated encoded PowerShell findings within ten minutes?
 ```
 
-For now, correlation matches are returned in memory only. They are not saved to
-the database, shown by the API, turned into alerts, or sent to AI.
+Phase 15 adds `app/correlation/repository.py`, which can save correlation
+matches to the `correlation_matches` table. The repository does not commit or
+roll back. The caller still decides when the transaction is complete.
+
+Live historical correlation is still future work. That means the collector does
+not yet load older findings from PostgreSQL to correlate them with new findings.
 
 ### Risk Foundation
 
@@ -494,8 +498,11 @@ The risk engine:
 Providers do not return final scores. They only return adjustments like `+15`
 or `-10`, with evidence explaining why.
 
-For now, risk assessments are returned in memory only. They are not persisted,
-shown by the API, turned into alerts, or sent to AI.
+Phase 15 adds `app/risk/repository.py`, which can save risk assessments to the
+`risk_assessments` table. It serializes score contributions and evidence as
+JSON.
+
+Risk assessments are not yet shown by the API or sent to AI.
 
 ### Alert Foundation
 
@@ -512,9 +519,31 @@ The alert engine:
 4. Starts every new alert in `AlertStatus.NEW`.
 5. Preserves the risk and correlation identity from the assessment.
 
-For now, alerts are returned in memory only. They are not persisted, exposed by
-the API, delivered through notifications, assigned to analysts, or mutated
-through lifecycle transitions.
+Phase 15 adds `app/alerts/repository.py`, which can save alerts to the `alerts`
+table. The alert still starts as `AlertStatus.NEW`, and lifecycle changes such
+as acknowledgement, suppression, assignment, and resolution are future work.
+
+Alerts are not yet exposed by the API or delivered through notifications.
+
+### Intelligence Persistence
+
+Phase 15 makes the higher-level decision chain durable.
+
+The new repositories are:
+
+- `CorrelationRepository`
+- `RiskRepository`
+- `AlertRepository`
+
+They follow the same rule as the existing telemetry and detection repositories:
+
+```text
+repositories stage SQL
+orchestration commits or rolls back
+```
+
+That boundary matters because later phases may need one transaction to include
+correlation, risk, and alert rows together.
 
 It skips events unless:
 

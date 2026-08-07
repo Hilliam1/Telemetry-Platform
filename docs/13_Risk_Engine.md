@@ -2,11 +2,13 @@
 
 ## Current Status
 
-Phase 13 introduces deterministic in-memory risk assessment.
+Phase 13 introduced deterministic in-memory risk assessment. Phase 15 adds
+PostgreSQL persistence support for risk assessments through
+`app/risk/repository.py`.
 
 The risk subsystem consumes `CorrelationMatch` objects. It does not read raw
-events, query PostgreSQL, invoke the collector, expose API routes, create
-alerts, or call AI services.
+events, invoke the collector, expose API routes, create alerts, or call AI
+services.
 
 ## Responsibilities
 
@@ -25,7 +27,8 @@ app/risk/
 |-- engine.py
 |-- models.py
 |-- policy.py
-`-- providers.py
+|-- providers.py
+`-- repository.py
 ```
 
 ## Components
@@ -52,6 +55,11 @@ Providers return score deltas only. They do not calculate final scores.
 Aggregates deterministic provider contributions, clamps final scores, assigns
 normalized risk levels, and creates `RiskAssessment` objects.
 
+### `app/risk/repository.py`
+
+Persists `RiskAssessment` objects to the `risk_assessments` table using an
+existing PostgreSQL transaction.
+
 ## Current Providers
 
 ### RepeatedActivityRiskProvider
@@ -61,14 +69,13 @@ the same host.
 
 ## Current Limitations
 
-- Risk assessments are not persisted.
 - The collector does not invoke the Risk Engine.
+- Risk repository methods do not commit or roll back.
 - MITRE ATT&CK is not yet integrated.
 - CVSS is not yet integrated.
 - Asset criticality is not yet integrated.
 - Identity context is not yet integrated.
 - Threat intelligence is not yet integrated.
-- No alert is created.
 - No AI reasoning is used.
 
 ## Validation
