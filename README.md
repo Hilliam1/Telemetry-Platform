@@ -110,25 +110,41 @@ Alert Policy
 Alert
 ```
 
-## Target Architecture
+## Planned Target Architecture
 
 ```text
-Windows, Linux, Proxmox, and Future Sources
+Windows, Linux, Network, Cloud, and Future Sources
         |
         v
-Collector Layer
+Collector / Integration Layer
         |
         v
-Normalization Layer
+Normalization
         |
-        v
-PostgreSQL Database
-        |
-        v
-REST API
-        |
-        v
-Dashboard and Detection Layer
+        +--------------------+
+        |                    |
+        v                    v
+Telemetry Persistence    Detection
+                             |
+                             v
+                         Correlation
+                             |
+                             v
+                           Risk
+                             |
+                             v
+                           Alert
+                             |
+                             v
+                    Intelligence Persistence
+                             |
+                             v
+                         REST API
+                             |
+                    +--------+--------+
+                    |                 |
+                    v                 v
+                Dashboard        Notifications
 ```
 
 ## Repository Layout
