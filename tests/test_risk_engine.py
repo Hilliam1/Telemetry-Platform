@@ -135,3 +135,26 @@ def test_empty_provider_name_is_rejected():
             policy=RiskPolicy(),
             providers=(provider,),
         )
+
+
+def test_provider_cannot_misattribute_contribution():
+    provider = Mock(spec=RiskProvider)
+    provider.name = "actual_provider"
+    provider.evaluate.return_value = (
+        RiskContribution.create(
+            provider="different_provider",
+            reason="bad attribution",
+            score_delta=10,
+        ),
+    )
+
+    engine = RiskEngine(
+        policy=RiskPolicy(),
+        providers=(provider,),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="provider mismatch",
+    ):
+        engine.assess(make_correlation())

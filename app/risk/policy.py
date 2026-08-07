@@ -20,6 +20,37 @@ class RiskPolicy:
     medium_max: int = 59
     high_max: int = 79
 
+    def __post_init__(self) -> None:
+        if self.minimum_score >= self.maximum_score:
+            raise ValueError(
+                "minimum_score must be lower than maximum_score"
+            )
+
+        thresholds = (
+            self.informational_max,
+            self.low_max,
+            self.medium_max,
+            self.high_max,
+        )
+
+        if thresholds != tuple(sorted(thresholds)):
+            raise ValueError(
+                "Risk level thresholds must be strictly ordered"
+            )
+
+        if len(set(thresholds)) != len(thresholds):
+            raise ValueError(
+                "Risk level thresholds must be unique"
+            )
+
+        if not all(
+            self.minimum_score <= threshold < self.maximum_score
+            for threshold in thresholds
+        ):
+            raise ValueError(
+                "Risk thresholds must fall within score bounds"
+            )
+
     def clamp(self, score: int) -> int:
         return max(
             self.minimum_score,

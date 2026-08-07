@@ -37,9 +37,17 @@ class RiskEngine:
         contributions: list[RiskContribution] = []
 
         for provider in self.providers:
-            contributions.extend(
-                provider.evaluate(correlation)
-            )
+            provider_contributions = provider.evaluate(correlation)
+
+            for contribution in provider_contributions:
+                if contribution.provider != provider.name:
+                    raise ValueError(
+                        "Risk contribution provider mismatch: "
+                        f"expected {provider.name!r}, "
+                        f"got {contribution.provider!r}"
+                    )
+
+            contributions.extend(provider_contributions)
 
         raw_score = base_score + sum(
             contribution.score_delta
