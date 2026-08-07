@@ -14,7 +14,10 @@ class AlertPolicy:
     minimum_score: int = 40
 
     def __post_init__(self) -> None:
-        if isinstance(self.minimum_score, bool) or not isinstance(
+        if isinstance(
+            self.minimum_score,
+            bool,
+        ) or not isinstance(
             self.minimum_score,
             int,
         ):

@@ -10,6 +10,7 @@ That means it starts the process, but the collector logic lives in other
 modules:
 
 - `app/config.py` reads environment variables.
+- `app/auth/` authenticates API keys and checks route permissions.
 - `app/database.py` creates PostgreSQL connections.
 - `app/collector_factory.py` builds the collector and wires dependencies together.
 - `app/collector.py` runs the collector orchestration service.
@@ -617,6 +618,40 @@ validation errors.
 
 This phase does not acknowledge, suppress, resolve, or deliver alerts. It only
 makes persisted intelligence visible.
+
+### API Authentication
+
+Phase 18 protects the intelligence API with bearer API keys.
+
+Requests need a header like this:
+
+```text
+Authorization: Bearer your-api-key
+```
+
+The key comes from:
+
+```text
+TELEMETRY_API_KEY
+```
+
+The auth service turns the key into a `Principal`. The route does not ask
+whether the identity is an administrator or analyst. It asks whether the
+identity has a permission:
+
+```text
+intelligence:read
+```
+
+That matters because future identity systems can add new role names without
+rewriting the route code.
+
+Expected behavior:
+
+- no authorization header returns `401`
+- bad API key returns `401`
+- valid key without `intelligence:read` returns `403`
+- valid key with `intelligence:read` returns `200`
 
 It skips events unless:
 

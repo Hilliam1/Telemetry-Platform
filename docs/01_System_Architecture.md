@@ -3,9 +3,9 @@
 | Field | Value |
 |---|---|
 | Specification | `docs/01_System_Architecture.md` |
-| Version | 0.5 |
+| Version | 0.6 |
 | Status | Draft for architecture review |
-| Implements | Platform Phase 17 |
+| Implements | Platform Phase 18 |
 | Last Reviewed | August 2026 |
 | Purpose | Define the current system architecture, governing engineering principles, and planned evolution of the Telemetry Platform. |
 
@@ -52,7 +52,7 @@ Future versions are expected to add event correlation, detection rules, risk sco
 
 ### 1.3 Current Scope
 
-At the Phase 17 baseline, the platform includes:
+At the Phase 18 baseline, the platform includes:
 
 - Windows Event Log collection
 - host-health metric collection
@@ -71,10 +71,11 @@ At the Phase 17 baseline, the platform includes:
 - stable detection finding deduplication for source events with Event Record IDs
 - stable correlation deduplication keys
 - read-only versioned intelligence API routes
+- bearer API-key authentication and permission checks for `/api/v1`
 - unit testing for major components
 - technical repository documentation
 
-The platform intentionally does not yet include a production dashboard, notification delivery, AI reasoning layer, or automated response engine. Phase 11 invokes deterministic detection during Windows event ingestion and persists findings. Phase 12, Phase 13, and Phase 14 add isolated in-memory correlation, risk, and alert foundations. Phase 15 makes correlation matches, risk assessments, and alerts persistable. Phase 16 connects those deterministic intelligence layers to live Windows ingestion while preserving source-level transaction ownership. Phase 17 exposes persisted intelligence through read-only `/api/v1` routes.
+The platform intentionally does not yet include a production dashboard, notification delivery, AI reasoning layer, or automated response engine. Phase 11 invokes deterministic detection during Windows event ingestion and persists findings. Phase 12, Phase 13, and Phase 14 add isolated in-memory correlation, risk, and alert foundations. Phase 15 makes correlation matches, risk assessments, and alerts persistable. Phase 16 connects those deterministic intelligence layers to live Windows ingestion while preserving source-level transaction ownership. Phase 17 exposes persisted intelligence through read-only `/api/v1` routes. Phase 18 protects those routes with API-key authentication and permission-based authorization.
 
 ### 1.4 Long-Term Vision
 
@@ -112,6 +113,7 @@ Each module should own one primary responsibility.
 | `app/collector.py` | Polling and run orchestration |
 | `app/sources.py` | Source definitions |
 | `app/source_handlers.py` | Source-specific execution |
+| `app/auth/` | Principals, roles, permissions, API-key authentication, and authorization dependencies |
 | `app/alerts/` | Deterministic alert models, policy, generation, and persistence |
 | `app/correlation/` | Deterministic correlation models, rules, evaluation, and persistence |
 | `app/detection/` | Deterministic detection models, rules, evaluation, and finding persistence |
@@ -603,7 +605,7 @@ flowchart LR
 
 The current API exposes a root `/` status response plus endpoints for recent logs, provider filtering, Event ID filtering, source filtering, text search, event statistics, metric history, and latest metrics. A dedicated production health/readiness endpoint is planned but is not currently implemented.
 
-Before commercial release, the API requires authentication, RBAC, API versioning, rate limiting, production connection pooling, formal response models, pagination, audit logging, and tenant isolation.
+Before commercial release, the API requires persistent credential storage, RBAC administration, rate limiting, production connection pooling, pagination, audit logging, and tenant isolation.
 
 ---
 
@@ -753,7 +755,7 @@ flowchart TD
 
 ## 11. Detection, Correlation, Risk, and Alert Architecture
 
-> **Implementation status:** Phase 17 implements deterministic detection evaluation and persistence plus live intelligence orchestration for correlation matches, risk assessments, and alerts inside the Windows source transaction. Persisted intelligence is exposed through read-only `/api/v1` routes. Notification delivery and alert lifecycle mutation are not implemented.
+> **Implementation status:** Phase 18 implements deterministic detection evaluation and persistence plus live intelligence orchestration for correlation matches, risk assessments, and alerts inside the Windows source transaction. Persisted intelligence is exposed through read-only `/api/v1` routes protected by bearer API-key authentication and `intelligence:read` authorization. Notification delivery and alert lifecycle mutation are not implemented.
 
 
 ```mermaid
@@ -771,7 +773,7 @@ flowchart TD
  K --> L[Future Incidents]
 ```
 
-Current Phase 17 components include deterministic detection models, built-in PowerShell-focused rules, an in-memory detection engine, a detection repository that persists and reloads findings, an intelligence service that loads recent findings, an in-memory correlation engine, an in-memory risk engine, an in-memory alert engine, repositories that persist correlation matches, risk assessments, and alerts using caller-controlled transactions, and read-only intelligence API routes. Planned components include a detection rule registry, asset context service, user context service, incident service, notification delivery, and suppression framework.
+Current Phase 18 components include deterministic detection models, built-in PowerShell-focused rules, an in-memory detection engine, a detection repository that persists and reloads findings, an intelligence service that loads recent findings, an in-memory correlation engine, an in-memory risk engine, an in-memory alert engine, repositories that persist correlation matches, risk assessments, and alerts using caller-controlled transactions, read-only intelligence API routes, and permission-based API authorization. Planned components include a detection rule registry, asset context service, user context service, incident service, notification delivery, and suppression framework.
 
 Detection principles:
 
@@ -791,7 +793,7 @@ Detection principles:
 
 ## 12. Planned AI and Reasoning Architecture
 
-> **Implementation status:** Future-state design. AI reasoning, RAG, and recommendation services are not implemented in the Phase 17 baseline.
+> **Implementation status:** Future-state design. AI reasoning, RAG, and recommendation services are not implemented in the Phase 18 baseline.
 
 
 ```mermaid
@@ -885,7 +887,8 @@ A self-hosted security and operational intelligence assistant for small organiza
 | Phase 15 | Correlation, risk, and alert persistence boundaries introduced |
 | Phase 16 | Live deterministic intelligence orchestration introduced |
 | Phase 17 | Read-only intelligence API introduced |
-| Phase 18+ | Notifications, product hardening, and intelligence layers |
+| Phase 18 | API-key authentication and permission checks introduced |
+| Phase 19+ | Persistent identity, notifications, product hardening, and intelligence layers |
 
 ---
 

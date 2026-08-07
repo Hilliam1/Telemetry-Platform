@@ -50,7 +50,17 @@ Returns the latest 100 host metric records.
 
 ## Versioned Intelligence Endpoints
 
-Phase 17 adds read-only intelligence endpoints under `/api/v1`.
+Phase 17 adds read-only intelligence endpoints under `/api/v1`. Phase 18
+protects those endpoints with bearer API-key authentication and
+permission-based authorization.
+
+Required header:
+
+```text
+Authorization: Bearer <API key>
+```
+
+The identity must have `intelligence:read`.
 
 ### `GET /api/v1/detections`
 
@@ -107,8 +117,11 @@ enums. Unknown values return `422`.
 The intelligence API is read-only. It does not acknowledge, resolve, suppress,
 or deliver alerts.
 
+Missing or invalid credentials return `401`. Valid credentials without the
+required permission return `403`.
+
 ## Future Notes
 
-The API should add health checks, pagination, time-range filters,
-authentication planning, collector-run endpoints, and future alert lifecycle
+The API should add health checks, pagination, time-range filters, credential
+storage, audit logging, collector-run endpoints, and future alert lifecycle
 routes.

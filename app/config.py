@@ -1,7 +1,7 @@
 """Application configuration loaded from environment variables."""
 
-from dataclasses import dataclass
 import os
+from dataclasses import dataclass
 from pathlib import Path
 
 
@@ -20,6 +20,11 @@ class CollectorSettings:
     poll_seconds: int
     batch_size: int
     enabled_sources: tuple[str, ...] | None
+
+
+@dataclass(frozen=True)
+class AuthSettings:
+    api_key: str | None
 
 
 DEFAULT_SOURCES = (
@@ -62,4 +67,15 @@ def load_collector_settings() -> CollectorSettings:
         poll_seconds=int(os.getenv("COLLECTOR_POLL_SECONDS", "5")),
         batch_size=int(os.getenv("COLLECTOR_BATCH_SIZE", "100")),
         enabled_sources=enabled_sources,
+    )
+
+
+def load_auth_settings() -> AuthSettings:
+    api_key = os.getenv("TELEMETRY_API_KEY")
+
+    if api_key is not None:
+        api_key = api_key.strip() or None
+
+    return AuthSettings(
+        api_key=api_key,
     )

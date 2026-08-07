@@ -31,11 +31,13 @@ The project starts with Windows telemetry because Windows Event Logs and Sysmon 
 - Stable detection finding deduplication for findings tied to Event Record IDs
 - Stable correlation deduplication keys
 - Read-only versioned intelligence API routes
+- API-key authentication and permission checks for intelligence API routes
 - Modular collector internals for configuration, database connections, collector orchestration, dependency construction, state, reading, parsing, host metrics, source handlers, and persistence
 
 ## Current Internal Modules
 
 - `app/config.py` loads environment-based settings.
+- `app/auth/` defines identities, roles, permissions, API-key authentication, and FastAPI authorization dependencies.
 - `app/database.py` creates PostgreSQL connections.
 - `app/collector.py` coordinates collector execution.
 - `app/collector_factory.py` constructs the collector and its dependencies.

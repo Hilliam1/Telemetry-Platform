@@ -150,13 +150,25 @@ It opens a PostgreSQL connection through `database_connection()` and yields an
 Tests replace this dependency with a fake repository, so route validation can be
 tested without opening PostgreSQL.
 
-## Current Security Boundary
+## Security Boundary
 
-Authentication is not implemented in Phase 17.
+Phase 18 protects `/api/v1` intelligence routes with bearer API-key
+authentication and permission-based authorization.
 
-These endpoints are intended for local development and controlled lab use until
-API keys, JWT, role-based access control, or another authentication layer is
-added.
+Requests must include:
+
+```text
+Authorization: Bearer <API key>
+```
+
+The authenticated identity must have:
+
+```text
+intelligence:read
+```
+
+Missing or invalid credentials return `401`. Valid credentials without the
+required permission return `403`.
 
 ## Future Work
 
@@ -164,7 +176,6 @@ Planned later work includes:
 
 - pagination cursors
 - time-range filters
-- API authentication
 - alert acknowledgement
 - alert assignment
 - alert suppression

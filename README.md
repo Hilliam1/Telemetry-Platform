@@ -4,7 +4,7 @@ Enterprise Telemetry Platform is a Python-based security telemetry project for c
 
 It is designed as an extensible platform for collecting, normalizing, storing, and querying system, security, and performance data across Windows, Linux, Proxmox, and future infrastructure.
 
-The current version focuses on Windows Event Log and Sysmon collection, PostgreSQL storage, process event extraction, collector state tracking, host health metrics, deterministic detection finding persistence, live deterministic intelligence orchestration, persistable correlation matches, persistable risk assessments, persistable alerts, and read-only versioned intelligence API routes.
+The current version focuses on Windows Event Log and Sysmon collection, PostgreSQL storage, process event extraction, collector state tracking, host health metrics, deterministic detection finding persistence, live deterministic intelligence orchestration, persistable correlation matches, persistable risk assessments, persistable alerts, read-only versioned intelligence API routes, and API-key authorization for the product-facing intelligence surface.
 
 ## Current Features
 
@@ -25,6 +25,7 @@ The current version focuses on Windows Event Log and Sysmon collection, PostgreS
 - Detection finding deduplication with stable source-event and rule identity
 - Correlation deduplication with stable deterministic correlation keys
 - Read-only `/api/v1` intelligence endpoints for detections, correlations, risk assessments, and alerts
+- Bearer API-key authentication and permission checks for `/api/v1` intelligence endpoints
 
 ## Current Architecture
 
@@ -223,6 +224,12 @@ Telemetry-Platform/
 |-- app/
 |   |-- __init__.py
 |   |-- api.py
+|   |-- auth/
+|   |   |-- __init__.py
+|   |   |-- dependencies.py
+|   |   |-- models.py
+|   |   |-- permissions.py
+|   |   `-- service.py
 |   |-- alerts/
 |   |   |-- __init__.py
 |   |   |-- engine.py
@@ -302,7 +309,8 @@ Telemetry-Platform/
 |   |-- 14_Alert_Engine.md
 |   |-- 15_Intelligence_Persistence.md
 |   |-- 16_Intelligence_Orchestration.md
-|   `-- 17_Intelligence_API.md
+|   |-- 17_Intelligence_API.md
+|   `-- 18_Authentication_Authorization.md
 |-- diagrams/
 |-- screenshots/
 |-- tests/
