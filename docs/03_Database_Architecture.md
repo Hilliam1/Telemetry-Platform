@@ -84,6 +84,68 @@ Expected fields:
 - `evidence`
 - `tags`
 
+### `correlation_matches`
+
+Stores deterministic correlation matches produced from detection findings.
+
+Expected fields:
+
+- `correlation_uuid`
+- `rule_id`
+- `rule_version`
+- `title`
+- `severity`
+- `source_host`
+- `first_event_time`
+- `last_event_time`
+- `matched_finding_ids`
+- `matched_detection_rule_ids`
+- `explanation`
+- `investigation_steps`
+- `evidence`
+- `tags`
+
+### `risk_assessments`
+
+Stores deterministic risk assessments produced from correlation matches.
+
+Expected fields:
+
+- `assessment_uuid`
+- `correlation_uuid`
+- `correlation_rule_id`
+- `score`
+- `level`
+- `base_score`
+- `contributions`
+- `source_host`
+- `first_event_time`
+- `last_event_time`
+- `assessed_at`
+- `explanation`
+- `evidence`
+
+### `alerts`
+
+Stores operator-facing alerts produced from risk assessments.
+
+Expected fields:
+
+- `alert_uuid`
+- `assessment_uuid`
+- `correlation_uuid`
+- `correlation_rule_id`
+- `title`
+- `risk_score`
+- `risk_level`
+- `status`
+- `source_host`
+- `first_event_time`
+- `last_event_time`
+- `created_at`
+- `summary`
+- `evidence`
+
 ## Persistence Ownership
 
 Collector persistence SQL lives in `app/repository.py`.
@@ -100,6 +162,12 @@ Detection finding persistence SQL lives in `app/detection/repository.py`.
 `DetectionRepository` inserts rows into:
 
 - `detection_findings`
+
+Intelligence persistence SQL lives in dedicated repositories:
+
+- `app/correlation/repository.py` inserts `correlation_matches`
+- `app/risk/repository.py` inserts `risk_assessments`
+- `app/alerts/repository.py` inserts `alerts`
 
 Repositories do not commit or roll back transactions. Source handlers control
 source-level transaction boundaries, and `app/collector.py` controls
@@ -120,3 +188,8 @@ stage log, process, and detection finding rows
 This prevents the collector from advancing its checkpoint when database writes
 fail. If detection finding persistence fails, the source transaction rolls back
 with the raw event and process rows.
+
+Phase 15 does not connect historical correlation to the live collector yet.
+Correlation matches, risk assessments, and alerts are persistable through
+repositories, but orchestration that loads historical findings and commits the
+full intelligence chain is planned for a later phase.

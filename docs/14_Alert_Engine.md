@@ -2,11 +2,13 @@
 
 ## Current Status
 
-Phase 14 introduces deterministic in-memory alert generation.
+Phase 14 introduced deterministic in-memory alert generation. Phase 15 adds
+PostgreSQL persistence support for alerts through
+`app/alerts/repository.py`.
 
 The alert subsystem consumes `RiskAssessment` objects. It does not read raw
-events, query PostgreSQL, invoke the collector, expose API routes, deliver
-notifications, mutate lifecycle state, or call AI services.
+events, invoke the collector, expose API routes, deliver notifications, mutate
+lifecycle state, or call AI services.
 
 ## Purpose
 
@@ -49,7 +51,8 @@ app/alerts/
 |-- __init__.py
 |-- engine.py
 |-- models.py
-`-- policy.py
+|-- policy.py
+`-- repository.py
 ```
 
 ## Alert Model
@@ -91,10 +94,15 @@ It performs one decision:
 Risk assessment -> policy decision -> Alert or None
 ```
 
+## Alert Repository
+
+`AlertRepository` persists `Alert` objects to the `alerts` table using an
+existing PostgreSQL transaction.
+
 ## Current Limitations
 
-- Alerts are not persisted.
 - The collector does not invoke the Alert Engine.
+- Alert repository methods do not commit or roll back.
 - API routes do not expose alerts.
 - Email, SMS, push, and mobile notifications are not implemented.
 - Alert acknowledgement, resolution, and suppression transitions are not implemented.
@@ -106,7 +114,6 @@ Risk assessment -> policy decision -> Alert or None
 
 Future phases can add:
 
-- alert persistence;
 - alert lifecycle service;
 - audit records for state transitions;
 - authenticated user context;
