@@ -101,6 +101,9 @@ Returns one alert by UUID.
 
 Missing alerts return `404`. Malformed UUIDs return `422`.
 
+Severity, level, risk-level, and status filters are validated against platform
+enums. Unknown values return `422`.
+
 The intelligence API is read-only. It does not acknowledge, resolve, suppress,
 or deliver alerts.
 

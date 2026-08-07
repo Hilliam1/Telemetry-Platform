@@ -126,7 +126,18 @@ class FakeRepository:
         return self.list_alerts()[0]
 
 
-def make_client(repository: FakeRepository):
+class FakeInvalidAlertRepository(FakeRepository):
+    def list_alerts(self, **kwargs):
+        alerts = super().list_alerts(**kwargs)
+        alerts[0]["risk_level"] = "supercritical"
+        return alerts
+
+
+def make_client(
+    repository: FakeRepository,
+    *,
+    raise_server_exceptions: bool = True,
+):
     def override_repository():
         yield repository
 
@@ -134,7 +145,10 @@ def make_client(repository: FakeRepository):
         get_intelligence_repository
     ] = override_repository
 
-    return TestClient(app)
+    return TestClient(
+        app,
+        raise_server_exceptions=raise_server_exceptions,
+    )
 
 
 def test_detections_route_passes_filters():
@@ -314,5 +328,79 @@ def test_minimum_score_above_range_returns_422():
     )
 
     assert response.status_code == 422
+
+    app.dependency_overrides.clear()
+
+
+def test_invalid_detection_severity_returns_422():
+    repository = FakeRepository()
+    client = make_client(repository)
+
+    response = client.get("/api/v1/detections?severity=banana")
+
+    assert response.status_code == 422
+    assert repository.calls == []
+
+    app.dependency_overrides.clear()
+
+
+def test_invalid_correlation_severity_returns_422():
+    repository = FakeRepository()
+    client = make_client(repository)
+
+    response = client.get("/api/v1/correlations?severity=banana")
+
+    assert response.status_code == 422
+    assert repository.calls == []
+
+    app.dependency_overrides.clear()
+
+
+def test_invalid_risk_level_returns_422():
+    repository = FakeRepository()
+    client = make_client(repository)
+
+    response = client.get("/api/v1/risk-assessments?level=urgent")
+
+    assert response.status_code == 422
+    assert repository.calls == []
+
+    app.dependency_overrides.clear()
+
+
+def test_invalid_alert_status_returns_422():
+    repository = FakeRepository()
+    client = make_client(repository)
+
+    response = client.get("/api/v1/alerts?status=closed")
+
+    assert response.status_code == 422
+    assert repository.calls == []
+
+    app.dependency_overrides.clear()
+
+
+def test_invalid_alert_risk_level_returns_422():
+    repository = FakeRepository()
+    client = make_client(repository)
+
+    response = client.get("/api/v1/alerts?risk_level=supercritical")
+
+    assert response.status_code == 422
+    assert repository.calls == []
+
+    app.dependency_overrides.clear()
+
+
+def test_invalid_repository_enum_value_fails_response_contract():
+    repository = FakeInvalidAlertRepository()
+    client = make_client(
+        repository,
+        raise_server_exceptions=False,
+    )
+
+    response = client.get("/api/v1/alerts")
+
+    assert response.status_code == 500
 
     app.dependency_overrides.clear()

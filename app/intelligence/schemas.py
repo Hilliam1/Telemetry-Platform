@@ -8,6 +8,10 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
+from app.alerts.models import AlertStatus
+from app.detection.models import DetectionSeverity
+from app.risk.models import RiskLevel
+
 
 class IntelligenceResponse(BaseModel):
     """Base API model for intelligence responses."""
@@ -22,7 +26,7 @@ class DetectionFindingResponse(IntelligenceResponse):
     rule_id: str
     rule_version: int
     title: str
-    severity: str
+    severity: DetectionSeverity
 
     source_host: str
     source_type: str
@@ -47,7 +51,7 @@ class CorrelationMatchResponse(IntelligenceResponse):
     rule_version: int
 
     title: str
-    severity: str
+    severity: DetectionSeverity
 
     source_host: str
 
@@ -70,7 +74,7 @@ class RiskAssessmentResponse(IntelligenceResponse):
     correlation_rule_id: str
 
     score: int
-    level: str
+    level: RiskLevel
     base_score: int
 
     contributions: list[dict[str, Any]]
@@ -95,8 +99,8 @@ class AlertResponse(IntelligenceResponse):
     title: str
 
     risk_score: int
-    risk_level: str
-    status: str
+    risk_level: RiskLevel
+    status: AlertStatus
 
     source_host: str
 

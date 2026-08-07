@@ -88,6 +88,10 @@ Values outside that range return `422`.
 
 `minimum_score` is bounded from `0` through `100`.
 
+Severity, risk level, and alert status filters are validated against the
+platform domain enums. Invalid values such as `severity=banana`,
+`level=urgent`, `risk_level=supercritical`, or `status=closed` return `422`.
+
 ## Response Contracts
 
 Response models live in:
@@ -105,6 +109,11 @@ Current response models:
 
 These models are the public API contract for dashboard, reporting, mobile, and
 future automation clients.
+
+The response models also preserve the platform enum contracts for detection
+severity, correlation severity, risk level, alert risk level, and alert status.
+If a repository returns a value outside those domains, FastAPI rejects the
+response instead of silently publishing malformed intelligence data.
 
 ## Query Repository
 

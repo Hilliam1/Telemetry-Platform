@@ -87,6 +87,9 @@ Current boundaries:
 
 - `limit` must be between `1` and `500`
 - `minimum_score` must be between `0` and `100`
+- detection and correlation `severity` must match `DetectionSeverity`
+- risk `level` and alert `risk_level` must match `RiskLevel`
+- alert `status` must match `AlertStatus`
 - malformed alert UUIDs return `422`
 - missing alert UUIDs return `404`
 
@@ -131,6 +134,8 @@ Tests verify:
 - route functions can be tested without PostgreSQL
 - list limits reject `0` and `501`
 - `minimum_score` rejects `-1` and `101`
+- invalid severity, risk-level, and alert-status filters return `422`
+- invalid enum values returned by a repository fail the response contract
 - malformed alert UUIDs return `422`
 - missing alerts return `404`
 - repository methods use parameterized query values

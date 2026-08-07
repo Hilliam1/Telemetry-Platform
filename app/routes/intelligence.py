@@ -8,7 +8,9 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from app.alerts.models import AlertStatus
 from app.database import database_connection
+from app.detection.models import DetectionSeverity
 from app.intelligence.query_repository import (
     IntelligenceQueryRepository,
 )
@@ -18,6 +20,7 @@ from app.intelligence.schemas import (
     DetectionFindingResponse,
     RiskAssessmentResponse,
 )
+from app.risk.models import RiskLevel
 
 router = APIRouter(
     prefix="/api/v1",
@@ -50,6 +53,18 @@ MinimumScoreQuery = Annotated[
         le=100,
     ),
 ]
+SeverityQuery = Annotated[
+    DetectionSeverity | None,
+    Query(),
+]
+RiskLevelQuery = Annotated[
+    RiskLevel | None,
+    Query(),
+]
+AlertStatusQuery = Annotated[
+    AlertStatus | None,
+    Query(),
+]
 
 
 @router.get(
@@ -59,12 +74,12 @@ MinimumScoreQuery = Annotated[
 def get_detections(
     repository: IntelligenceRepositoryDependency,
     host: str | None = None,
-    severity: str | None = None,
+    severity: SeverityQuery = None,
     limit: LimitQuery = 100,
 ):
     return repository.list_detections(
         source_host=host,
-        severity=severity,
+        severity=severity.value if severity is not None else None,
         limit=limit,
     )
 
@@ -76,12 +91,12 @@ def get_detections(
 def get_correlations(
     repository: IntelligenceRepositoryDependency,
     host: str | None = None,
-    severity: str | None = None,
+    severity: SeverityQuery = None,
     limit: LimitQuery = 100,
 ):
     return repository.list_correlations(
         source_host=host,
-        severity=severity,
+        severity=severity.value if severity is not None else None,
         limit=limit,
     )
 
@@ -93,13 +108,13 @@ def get_correlations(
 def get_risk_assessments(
     repository: IntelligenceRepositoryDependency,
     host: str | None = None,
-    level: str | None = None,
+    level: RiskLevelQuery = None,
     minimum_score: MinimumScoreQuery = None,
     limit: LimitQuery = 100,
 ):
     return repository.list_risk_assessments(
         source_host=host,
-        level=level,
+        level=level.value if level is not None else None,
         minimum_score=minimum_score,
         limit=limit,
     )
@@ -112,15 +127,15 @@ def get_risk_assessments(
 def get_alerts(
     repository: IntelligenceRepositoryDependency,
     host: str | None = None,
-    status: str | None = None,
-    risk_level: str | None = None,
+    status: AlertStatusQuery = None,
+    risk_level: RiskLevelQuery = None,
     minimum_score: MinimumScoreQuery = None,
     limit: LimitQuery = 100,
 ):
     return repository.list_alerts(
         source_host=host,
-        status=status,
-        risk_level=risk_level,
+        status=status.value if status is not None else None,
+        risk_level=risk_level.value if risk_level is not None else None,
         minimum_score=minimum_score,
         limit=limit,
     )
