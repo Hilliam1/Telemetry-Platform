@@ -15,6 +15,8 @@ def test_intelligence_migrations_are_repeatable():
         "006_create_risk_assessments.sql",
         "007_create_alerts.sql",
         "008_create_intelligence_indexes.sql",
+        "009_add_correlation_deduplication.sql",
+        "010_add_detection_finding_deduplication.sql",
     ):
         sql = read_sql(filename).upper()
 
@@ -51,3 +53,27 @@ def test_alert_constraints_reject_invalid_states():
     assert "ck_alert_risk_level" in sql
     assert "ck_alert_status" in sql
     assert "suppressed" in sql
+
+
+def test_correlation_deduplication_migration_is_stable():
+    sql = read_sql(
+        "009_add_correlation_deduplication.sql"
+    )
+
+    assert "ADD COLUMN IF NOT EXISTS correlation_key TEXT" in sql
+    assert "CREATE UNIQUE INDEX IF NOT EXISTS" in sql
+    assert "uq_correlation_matches_key" in sql
+    assert "WHERE correlation_key IS NOT NULL" in sql
+
+
+def test_detection_finding_deduplication_migration_is_stable():
+    sql = read_sql(
+        "010_add_detection_finding_deduplication.sql"
+    )
+
+    assert "CREATE UNIQUE INDEX IF NOT EXISTS" in sql
+    assert "uq_detection_findings_source_rule" in sql
+    assert "rule_id" in sql
+    assert "rule_version" in sql
+    assert "event_record_id" in sql
+    assert "WHERE event_record_id IS NOT NULL" in sql

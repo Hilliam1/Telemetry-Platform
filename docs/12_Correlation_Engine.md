@@ -67,8 +67,8 @@ existing PostgreSQL transaction.
 
 ## Current Limitations
 
-- Live historical correlation is not yet connected to the collector.
-- The collector does not invoke the correlation engine.
+- Live historical correlation is invoked through `IntelligenceService`.
+- The collector does not call the correlation engine directly.
 - No API routes expose correlation matches.
 - Correlation repository methods do not commit or roll back.
 - No incident is created.

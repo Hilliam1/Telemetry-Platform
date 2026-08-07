@@ -18,7 +18,8 @@ After Phase 14, the platform has an isolated alert package that can:
 6. Start every alert in `AlertStatus.NEW`.
 7. Preserve alert evidence in read-only mappings.
 
-The collector does not invoke the alert engine yet.
+Phase 16 invokes alert generation through `IntelligenceService`; the collector
+does not call the alert engine directly.
 
 ## Added Package
 

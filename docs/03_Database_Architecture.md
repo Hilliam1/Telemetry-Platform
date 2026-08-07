@@ -84,6 +84,11 @@ Expected fields:
 - `evidence`
 - `tags`
 
+Phase 16 adds a partial unique index for findings tied to Windows Event Record
+IDs. For rows where `event_record_id` is not null, PostgreSQL prevents duplicate
+findings with the same rule ID, rule version, source host, source type, Event
+ID, and Event Record ID.
+
 ### `correlation_matches`
 
 Stores deterministic correlation matches produced from detection findings.
@@ -91,6 +96,7 @@ Stores deterministic correlation matches produced from detection findings.
 Expected fields:
 
 - `correlation_uuid`
+- `correlation_key`
 - `rule_id`
 - `rule_version`
 - `title`
@@ -189,7 +195,16 @@ This prevents the collector from advancing its checkpoint when database writes
 fail. If detection finding persistence fails, the source transaction rolls back
 with the raw event and process rows.
 
-Phase 15 does not connect historical correlation to the live collector yet.
-Correlation matches, risk assessments, and alerts are persistable through
-repositories, but orchestration that loads historical findings and commits the
-full intelligence chain is planned for a later phase.
+Phase 16 connects historical detection lookup to the live Windows source
+transaction. The intelligence service can query previously committed findings
+and newly staged findings on the same PostgreSQL connection before the source
+transaction commits.
+
+Detection finding deduplication is handled by a partial unique index on stable
+source-event and rule identity when `event_record_id` is present. Correlation
+deduplication is handled by `correlation_key`, a stable SHA-256 fingerprint of
+the correlation rule identity, host, and matched source-event identities. These
+keys do not depend on generated finding UUIDs, so replaying the same source
+event after a checkpoint save failure should not create duplicate findings,
+correlations, risk assessments, or alerts. The database enforces uniqueness for
+non-null correlation keys.

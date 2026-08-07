@@ -27,6 +27,9 @@ The project starts with Windows telemetry because Windows Event Logs and Sysmon 
 - Deterministic correlation foundation with persistence support
 - Deterministic risk assessment foundation with persistence support
 - Deterministic alert generation foundation with persistence support
+- Live deterministic intelligence orchestration for Windows event findings
+- Stable detection finding deduplication for findings tied to Event Record IDs
+- Stable correlation deduplication keys
 - Modular collector internals for configuration, database connections, collector orchestration, dependency construction, state, reading, parsing, host metrics, source handlers, and persistence
 
 ## Current Internal Modules
@@ -39,6 +42,7 @@ The project starts with Windows telemetry because Windows Event Logs and Sysmon 
 - `app/windows_reader.py` reads rendered XML from Windows Event Logs.
 - `app/parsers/windows_event_parser.py` parses and normalizes Windows event XML.
 - `app/health_metrics.py` collects host-health snapshots.
+- `app/intelligence/` orchestrates live correlation, risk, and alert persistence.
 - `app/source_handlers.py` executes source-specific ingestion workflows.
 - `app/alerts/` contains deterministic alert models, policy, generation, and persistence.
 - `app/correlation/` contains deterministic finding correlation models, rules, evaluation, and persistence.
@@ -54,7 +58,7 @@ The project starts with Windows telemetry because Windows Event Logs and Sysmon 
 - Linux telemetry
 - Proxmox telemetry
 - Wazuh integration
-- Historical correlation orchestration and detection API routes
+- Detection and intelligence API routes
 - Alert lifecycle management and notifications
 - Dashboard views
 - Docker deployment

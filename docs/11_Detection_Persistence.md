@@ -43,6 +43,10 @@ Phase 11 adds:
 - `sql/003_create_detection_findings.sql`
 - `sql/004_create_detection_indexes.sql`
 
+Phase 16 adds:
+
+- `sql/010_add_detection_finding_deduplication.sql`
+
 The `detection_findings` table stores the Phase 10 finding contract:
 
 - finding UUID
@@ -59,10 +63,8 @@ The `detection_findings` table stores the Phase 10 finding contract:
 ## Current Limitations
 
 - Findings have no API routes.
-- Findings are not grouped into alerts.
-- No correlation is implemented.
-- No risk aggregation is implemented.
-- Replay deduplication is not yet enforced beyond finding UUIDs.
+- Findings are not exposed through API routes.
+- Replay deduplication is enforced for findings that have an Event Record ID.
 - No AI reasoning is involved.
 
 ## Validation

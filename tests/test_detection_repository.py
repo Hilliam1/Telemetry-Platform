@@ -1,5 +1,6 @@
 import json
 from datetime import datetime, timezone
+from types import MappingProxyType
 from unittest.mock import MagicMock, Mock
 
 from app.detection.models import (
@@ -48,9 +49,11 @@ def make_finding() -> DetectionFinding:
 
 def test_insert_finding_executes_insert():
     repository, conn, cursor = make_repository()
+    cursor.fetchone.return_value = (1,)
 
-    repository.insert_finding(make_finding())
+    inserted = repository.insert_finding(make_finding())
 
+    assert inserted
     cursor.execute.assert_called_once()
     conn.commit.assert_not_called()
     conn.rollback.assert_not_called()
@@ -58,6 +61,7 @@ def test_insert_finding_executes_insert():
 
 def test_insert_finding_serializes_structured_fields():
     repository, _, cursor = make_repository()
+    cursor.fetchone.return_value = (1,)
 
     finding = make_finding()
     repository.insert_finding(finding)
@@ -80,6 +84,7 @@ def test_insert_finding_serializes_structured_fields():
 def test_insert_findings_returns_count():
     repository, _, cursor = make_repository()
     finding = make_finding()
+    cursor.fetchone.return_value = (1,)
 
     count = repository.insert_findings(
         (finding, finding)
@@ -87,3 +92,119 @@ def test_insert_findings_returns_count():
 
     assert count == 2
     assert cursor.execute.call_count == 2
+
+
+def test_duplicate_source_rule_finding_is_not_inserted():
+    repository, _, cursor = make_repository()
+    cursor.fetchone.return_value = None
+
+    inserted = repository.insert_finding(make_finding())
+
+    assert not inserted
+
+
+def test_insert_findings_counts_only_inserted_rows():
+    repository, _, cursor = make_repository()
+    original = make_finding()
+    replay = DetectionFinding(
+        finding_id="1f6806b3-fbf7-498e-9efe-11baf1e365cc",
+        rule_id=original.rule_id,
+        rule_version=original.rule_version,
+        title=original.title,
+        severity=original.severity,
+        source_host=original.source_host,
+        source_type=original.source_type,
+        event_id=original.event_id,
+        event_record_id=original.event_record_id,
+        event_time=original.event_time,
+        evaluated_at=original.evaluated_at,
+        explanation=original.explanation,
+        investigation_steps=original.investigation_steps,
+        evidence=original.evidence,
+        tags=original.tags,
+    )
+
+    cursor.fetchone.side_effect = [
+        (1,),
+        None,
+    ]
+
+    count = repository.insert_findings(
+        (original, replay)
+    )
+
+    assert count == 1
+    assert cursor.execute.call_count == 2
+
+
+def test_find_recent_findings_returns_empty_without_rule_ids():
+    repository, conn, _ = make_repository()
+
+    result = repository.find_recent_findings(
+        source_host="HOST-01",
+        rule_ids=(),
+        start_time=datetime.now(timezone.utc),
+        end_time=datetime.now(timezone.utc),
+    )
+
+    assert result == ()
+    conn.cursor.assert_not_called()
+
+
+def test_find_recent_findings_reconstructs_domain_objects():
+    repository, _, cursor = make_repository()
+    now = datetime.now(timezone.utc)
+
+    cursor.fetchall.return_value = [
+        (
+            "8d0ea328-ef8d-4bca-a56e-313ef8c8a870",
+            "TP-WIN-SYSMON-0002",
+            1,
+            "Encoded PowerShell Command",
+            "medium",
+            "HOST-01",
+            "sysmon",
+            1,
+            42,
+            now,
+            now,
+            "Encoded PowerShell was detected.",
+            json.dumps(["Decode the command."]),
+            json.dumps(
+                {
+                    "raw.event_data.CommandLine":
+                        "powershell.exe -enc SQBFAFgA"
+                }
+            ),
+            ["powershell", "encoded_command"],
+        )
+    ]
+
+    result = repository.find_recent_findings(
+        source_host="HOST-01",
+        rule_ids=("TP-WIN-SYSMON-0002",),
+        start_time=now,
+        end_time=now,
+    )
+
+    assert len(result) == 1
+    finding = result[0]
+    assert finding.finding_id == (
+        "8d0ea328-ef8d-4bca-a56e-313ef8c8a870"
+    )
+    assert finding.severity is DetectionSeverity.MEDIUM
+    assert finding.investigation_steps == (
+        "Decode the command.",
+    )
+    assert isinstance(finding.evidence, MappingProxyType)
+    assert finding.evidence[
+        "raw.event_data.CommandLine"
+    ] == "powershell.exe -enc SQBFAFgA"
+    assert finding.tags == (
+        "powershell",
+        "encoded_command",
+    )
+
+    parameters = cursor.execute.call_args.args[1]
+    assert parameters[0] == "HOST-01"
+    assert parameters[1] == ["TP-WIN-SYSMON-0002"]

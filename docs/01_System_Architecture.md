@@ -3,9 +3,9 @@
 | Field | Value |
 |---|---|
 | Specification | `docs/01_System_Architecture.md` |
-| Version | 0.3 |
+| Version | 0.4 |
 | Status | Draft for architecture review |
-| Implements | Platform Phase 15 |
+| Implements | Platform Phase 16 |
 | Last Reviewed | August 2026 |
 | Purpose | Define the current system architecture, governing engineering principles, and planned evolution of the Telemetry Platform. |
 
@@ -52,7 +52,7 @@ Future versions are expected to add event correlation, detection rules, risk sco
 
 ### 1.3 Current Scope
 
-At the Phase 15 baseline, the platform includes:
+At the Phase 16 baseline, the platform includes:
 
 - Windows Event Log collection
 - host-health metric collection
@@ -67,10 +67,13 @@ At the Phase 15 baseline, the platform includes:
 - deterministic correlation models, rules, evaluation, and persistence support
 - deterministic risk models, policy, providers, assessment, and persistence support
 - deterministic alert models, policy, generation, and persistence support
+- live deterministic intelligence orchestration during Windows ingestion
+- stable detection finding deduplication for source events with Event Record IDs
+- stable correlation deduplication keys
 - unit testing for major components
 - technical repository documentation
 
-The platform intentionally does not yet include a production dashboard, notification delivery, AI reasoning layer, or automated response engine. Phase 11 invokes deterministic detection during Windows event ingestion and persists findings. Phase 12, Phase 13, and Phase 14 add isolated in-memory correlation, risk, and alert foundations. Phase 15 makes correlation matches, risk assessments, and alerts persistable, but live historical correlation orchestration is still deferred.
+The platform intentionally does not yet include a production dashboard, notification delivery, AI reasoning layer, or automated response engine. Phase 11 invokes deterministic detection during Windows event ingestion and persists findings. Phase 12, Phase 13, and Phase 14 add isolated in-memory correlation, risk, and alert foundations. Phase 15 makes correlation matches, risk assessments, and alerts persistable. Phase 16 connects those deterministic intelligence layers to live Windows ingestion while preserving source-level transaction ownership.
 
 ### 1.4 Long-Term Vision
 
@@ -115,6 +118,7 @@ Each module should own one primary responsibility.
 | `app/windows_reader.py` | Windows Event Log access |
 | `app/parsers/windows_event_parser.py` | XML parsing and normalization |
 | `app/health_metrics.py` | Host metric collection |
+| `app/intelligence/` | Live deterministic intelligence orchestration |
 | `app/repository.py` | Telemetry persistence |
 | `app/state.py` | Checkpoint management |
 | `app/database.py` | PostgreSQL connection creation |
@@ -238,6 +242,10 @@ flowchart TD
  G --> K[Telemetry Repository]
  G --> R[Detection Engine]
  R --> S[Detection Repository]
+ S --> T[Intelligence Service]
+ T --> U[Correlation Repository]
+ T --> V[Risk Repository]
+ T --> W[Alert Repository]
 
  H --> L[Host Metrics Collector]
  L --> H
@@ -245,6 +253,9 @@ flowchart TD
 
  K --> M[(PostgreSQL)]
  S --> M
+ U --> M
+ V --> M
+ W --> M
  M --> N[FastAPI Query Service]
  N --> O[Planned Dashboard and Clients]
 
@@ -516,6 +527,7 @@ erDiagram
  }
  CORRELATION_MATCHES {
  uuid correlation_uuid
+ string correlation_key
  string rule_id
  int rule_version
  string title
@@ -737,7 +749,7 @@ flowchart TD
 
 ## 11. Detection, Correlation, Risk, and Alert Architecture
 
-> **Implementation status:** Phase 15 implements deterministic detection evaluation and persistence plus repository-backed persistence boundaries for correlation matches, risk assessments, and alerts. Historical correlation is not yet invoked by the live collector, and intelligence objects are not yet exposed through the API or delivered as notifications.
+> **Implementation status:** Phase 16 implements deterministic detection evaluation and persistence plus live intelligence orchestration for correlation matches, risk assessments, and alerts inside the Windows source transaction. Intelligence objects are not yet exposed through the API or delivered as notifications.
 
 
 ```mermaid
@@ -755,7 +767,7 @@ flowchart TD
  K --> L[Future Incidents]
 ```
 
-Current Phase 15 components include deterministic detection models, built-in PowerShell-focused rules, an in-memory detection engine, a detection repository that persists findings in the same transaction as their source events, an in-memory correlation engine for detection findings, an in-memory risk engine for correlation matches, an in-memory alert engine for qualifying risk assessments, and repositories that can persist correlation matches, risk assessments, and alerts using caller-controlled transactions. Planned components include historical correlation orchestration, API exposure, a detection rule registry, asset context service, user context service, incident service, notification delivery, and suppression framework.
+Current Phase 16 components include deterministic detection models, built-in PowerShell-focused rules, an in-memory detection engine, a detection repository that persists and reloads findings, an intelligence service that loads recent findings, an in-memory correlation engine, an in-memory risk engine, an in-memory alert engine, and repositories that persist correlation matches, risk assessments, and alerts using caller-controlled transactions. Planned components include API exposure, a detection rule registry, asset context service, user context service, incident service, notification delivery, and suppression framework.
 
 Detection principles:
 
@@ -775,7 +787,7 @@ Detection principles:
 
 ## 12. Planned AI and Reasoning Architecture
 
-> **Implementation status:** Future-state design. AI reasoning, RAG, and recommendation services are not implemented in the Phase 15 baseline.
+> **Implementation status:** Future-state design. AI reasoning, RAG, and recommendation services are not implemented in the Phase 16 baseline.
 
 
 ```mermaid
@@ -867,7 +879,8 @@ A self-hosted security and operational intelligence assistant for small organiza
 | Phase 13 | Deterministic in-memory risk assessment foundation introduced |
 | Phase 14 | Deterministic in-memory alert foundation introduced |
 | Phase 15 | Correlation, risk, and alert persistence boundaries introduced |
-| Phase 16+ | Historical correlation orchestration, API exposure, notifications, product hardening, and intelligence layers |
+| Phase 16 | Live deterministic intelligence orchestration introduced |
+| Phase 17+ | API exposure, notifications, product hardening, and intelligence layers |
 
 ---
 

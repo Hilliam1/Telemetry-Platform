@@ -18,6 +18,7 @@ modules:
 - `app/health_metrics.py` collects CPU, memory, disk, and boot-time metrics.
 - `app/sources.py` defines supported telemetry sources and their dispatch categories.
 - `app/source_handlers.py` runs source-specific ingestion workflows.
+- `app/intelligence/` coordinates detection findings through correlation, risk, and alert persistence.
 - `app/alerts/` creates operator-facing alerts from risk assessments and can persist them.
 - `app/detection/` evaluates deterministic rules and persists findings.
 - `app/correlation/` groups related detection findings and can persist correlation matches.
@@ -40,9 +41,9 @@ The pipeline looks like this:
 ```text
 Windows Event Logs -> XML -> Python dictionary -> detection findings -> PostgreSQL tables
 Host metrics -> Python dictionary -> PostgreSQL table
-Detection findings -> correlation rules -> correlation matches -> PostgreSQL table
-Correlation matches -> risk policy and providers -> risk assessments -> PostgreSQL table
-Risk assessments -> alert policy -> alerts -> PostgreSQL table
+Detection findings -> intelligence service -> correlation matches -> PostgreSQL table
+Correlation matches -> intelligence service -> risk assessments -> PostgreSQL table
+Risk assessments -> intelligence service -> alerts -> PostgreSQL table
 ```
 
 ## Imports
@@ -477,8 +478,10 @@ Phase 15 adds `app/correlation/repository.py`, which can save correlation
 matches to the `correlation_matches` table. The repository does not commit or
 roll back. The caller still decides when the transaction is complete.
 
-Live historical correlation is still future work. That means the collector does
-not yet load older findings from PostgreSQL to correlate them with new findings.
+Phase 16 connects correlation to live Windows ingestion through
+`app/intelligence/service.py`. The service loads recent findings from
+PostgreSQL, including findings staged earlier in the same transaction, before it
+evaluates correlation rules.
 
 ### Risk Foundation
 
@@ -502,7 +505,9 @@ Phase 15 adds `app/risk/repository.py`, which can save risk assessments to the
 `risk_assessments` table. It serializes score contributions and evidence as
 JSON.
 
-Risk assessments are not yet shown by the API or sent to AI.
+Phase 16 lets the intelligence service create and persist risk assessments from
+new correlation matches. Risk assessments are not yet shown by the API or sent
+to AI.
 
 ### Alert Foundation
 
@@ -523,7 +528,9 @@ Phase 15 adds `app/alerts/repository.py`, which can save alerts to the `alerts`
 table. The alert still starts as `AlertStatus.NEW`, and lifecycle changes such
 as acknowledgement, suppression, assignment, and resolution are future work.
 
-Alerts are not yet exposed by the API or delivered through notifications.
+Phase 16 lets the intelligence service create and persist alerts from qualifying
+risk assessments. Alerts are not yet exposed by the API or delivered through
+notifications.
 
 ### Intelligence Persistence
 
@@ -544,6 +551,39 @@ orchestration commits or rolls back
 
 That boundary matters because later phases may need one transaction to include
 correlation, risk, and alert rows together.
+
+### Live Intelligence Orchestration
+
+Phase 16 adds `IntelligenceService`.
+
+The Windows handler still owns the transaction. The intelligence service owns
+the deterministic intelligence workflow:
+
+```text
+new findings
+load recent findings
+correlate
+persist new correlation
+assess risk
+persist risk
+evaluate alert policy
+persist alert
+```
+
+If any intelligence step fails, the Windows handler rolls back the source
+transaction. That means raw telemetry, process rows, detection findings,
+correlations, risk assessments, and alerts all succeed together or fail
+together. The checkpoint advances only after commit succeeds.
+
+Correlation rows use a stable `correlation_key` so the same source events do
+not create duplicate risk assessments or alerts on later polling cycles. The
+key is based on event identity, not random finding UUIDs.
+
+Detection finding rows now have their own replay protection too. If the same
+Windows event is read again and produces the same detection rule finding,
+PostgreSQL can reject the duplicate based on the rule, host, source type, Event
+ID, and Event Record ID. That keeps replayed findings from pretending to be two
+separate events during temporal correlation.
 
 It skips events unless:
 

@@ -54,8 +54,11 @@ def make_match() -> CorrelationMatch:
 def test_insert_match_executes_insert():
     repository, conn, cursor = make_repository()
 
-    repository.insert_match(make_match())
+    cursor.fetchone.return_value = (1,)
 
+    inserted = repository.insert_match(make_match())
+
+    assert inserted
     cursor.execute.assert_called_once()
     conn.commit.assert_not_called()
     conn.rollback.assert_not_called()
@@ -64,27 +67,29 @@ def test_insert_match_executes_insert():
 def test_insert_match_serializes_fields():
     repository, _, cursor = make_repository()
     match = make_match()
+    cursor.fetchone.return_value = (1,)
 
     repository.insert_match(match)
 
     parameters = cursor.execute.call_args.args[1]
 
     assert parameters[0] == match.correlation_id
-    assert parameters[4] == "high"
-    assert parameters[8] == list(match.matched_finding_ids)
-    assert parameters[9] == list(
+    assert len(parameters[1]) == 64
+    assert parameters[5] == "high"
+    assert parameters[9] == list(match.matched_finding_ids)
+    assert parameters[10] == list(
         match.matched_detection_rule_ids
     )
-    assert json.loads(parameters[11]) == [
+    assert json.loads(parameters[12]) == [
         "Compare encoded payloads."
     ]
-    assert json.loads(parameters[12]) == {
+    assert json.loads(parameters[13]) == {
         "group_key": ["HOST-01"],
         "nested": {
             "count": 2,
         },
     }
-    assert parameters[13] == [
+    assert parameters[14] == [
         "powershell",
         "repeated_activity",
     ]
@@ -92,8 +97,20 @@ def test_insert_match_serializes_fields():
 
 def test_repository_does_not_own_transaction():
     repository, conn, _ = make_repository()
+    conn.cursor.return_value.__enter__.return_value.fetchone.return_value = (
+        1,
+    )
 
     repository.insert_match(make_match())
 
     conn.commit.assert_not_called()
     conn.rollback.assert_not_called()
+
+
+def test_insert_match_returns_false_for_duplicate_key():
+    repository, _, cursor = make_repository()
+    cursor.fetchone.return_value = None
+
+    inserted = repository.insert_match(make_match())
+
+    assert not inserted

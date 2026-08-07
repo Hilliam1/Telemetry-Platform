@@ -101,7 +101,8 @@ existing PostgreSQL transaction.
 
 ## Current Limitations
 
-- The collector does not invoke the Alert Engine.
+- Live alert generation is invoked through `IntelligenceService`.
+- The collector does not call the alert engine directly.
 - Alert repository methods do not commit or roll back.
 - API routes do not expose alerts.
 - Email, SMS, push, and mobile notifications are not implemented.

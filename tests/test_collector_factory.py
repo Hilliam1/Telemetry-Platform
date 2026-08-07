@@ -2,9 +2,16 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from app.alerts.engine import AlertEngine
+from app.alerts.repository import AlertRepository
 from app.collector_factory import create_collector
+from app.correlation.engine import CorrelationEngine
+from app.correlation.repository import CorrelationRepository
 from app.detection.engine import DetectionEngine
 from app.detection.repository import DetectionRepository
+from app.intelligence.service import IntelligenceService
+from app.risk.engine import RiskEngine
+from app.risk.repository import RiskRepository
 from app.sources import SourceKind
 
 
@@ -74,6 +81,49 @@ def test_factory_constructs_collector(
         windows_handler_kwargs["detection_repository"],
         DetectionRepository,
     )
+    assert isinstance(
+        windows_handler_kwargs["intelligence_service"],
+        IntelligenceService,
+    )
+    assert isinstance(
+        windows_handler_kwargs[
+            "intelligence_service"
+        ].correlation_repository,
+        CorrelationRepository,
+    )
+    assert isinstance(
+        windows_handler_kwargs[
+            "intelligence_service"
+        ].correlation_engine,
+        CorrelationEngine,
+    )
+    assert isinstance(
+        windows_handler_kwargs[
+            "intelligence_service"
+        ].risk_repository,
+        RiskRepository,
+    )
+    assert isinstance(
+        windows_handler_kwargs[
+            "intelligence_service"
+        ].risk_engine,
+        RiskEngine,
+    )
+    assert isinstance(
+        windows_handler_kwargs[
+            "intelligence_service"
+        ].alert_repository,
+        AlertRepository,
+    )
+    assert isinstance(
+        windows_handler_kwargs[
+            "intelligence_service"
+        ].alert_engine,
+        AlertEngine,
+    )
+    assert "correlation_engine" not in windows_handler_kwargs
+    assert "risk_engine" not in windows_handler_kwargs
+    assert "alert_engine" not in windows_handler_kwargs
     assert "detection_engine" not in metrics_handler_kwargs
     assert "detection_repository" not in metrics_handler_kwargs
 

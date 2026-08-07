@@ -65,6 +65,11 @@ class FakeDetectionRepository:
         return len(tuple(findings))
 
 
+class FakeIntelligenceService:
+    def process(self, findings):
+        del findings
+
+
 def test_state_does_not_advance_when_database_commit_fails():
     parsed_events = [
         {
@@ -96,6 +101,7 @@ def test_state_does_not_advance_when_database_commit_fails():
         repository=FakeRepository(),
         detection_engine=FakeDetectionEngine(),
         detection_repository=FakeDetectionRepository(),
+        intelligence_service=FakeIntelligenceService(),
         reader=FakeReader(parsed_events),
         parser=FakeParser(),
         state=state,

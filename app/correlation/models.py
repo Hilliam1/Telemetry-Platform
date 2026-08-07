@@ -58,6 +58,7 @@ class CorrelationMatch:
     investigation_steps: tuple[str, ...]
     evidence: Mapping[str, Any]
     tags: tuple[str, ...]
+    matched_event_keys: tuple[str, ...] = ()
 
     @classmethod
     def from_findings(
@@ -95,6 +96,19 @@ class CorrelationMatch:
             matched_detection_rule_ids=tuple(
                 finding.rule_id
                 for finding in ordered
+            ),
+            matched_event_keys=tuple(
+                sorted(
+                    (
+                        f"{finding.source_host}|"
+                        f"{finding.source_type}|"
+                        f"{finding.event_id}|"
+                        f"{finding.event_record_id}|"
+                        f"{finding.rule_id}|"
+                        f"{finding.rule_version}"
+                    )
+                    for finding in ordered
+                )
             ),
             explanation=rule.explanation,
             investigation_steps=rule.investigation_steps,

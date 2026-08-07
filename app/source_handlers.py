@@ -13,6 +13,7 @@ from psycopg2.extensions import connection
 from app.detection.engine import DetectionEngine
 from app.detection.repository import DetectionRepository
 from app.health_metrics import HostMetricsCollector
+from app.intelligence.service import IntelligenceService
 from app.parsers.windows_event_parser import WindowsEventParser
 from app.repository import TelemetryRepository
 from app.sources import SourceKind, TelemetrySource
@@ -45,6 +46,7 @@ class WindowsEventSourceHandler(SourceHandler):
         repository: TelemetryRepository,
         detection_engine: DetectionEngine,
         detection_repository: DetectionRepository,
+        intelligence_service: IntelligenceService,
         reader: WindowsEventReader,
         parser: WindowsEventParser,
         state: CollectorState,
@@ -54,6 +56,7 @@ class WindowsEventSourceHandler(SourceHandler):
         self.repository = repository
         self.detection_engine = detection_engine
         self.detection_repository = detection_repository
+        self.intelligence_service = intelligence_service
         self.reader = reader
         self.parser = parser
         self.state = state
@@ -138,6 +141,7 @@ class WindowsEventSourceHandler(SourceHandler):
 
             findings = self.detection_engine.evaluate(event)
             self.detection_repository.insert_findings(findings)
+            self.intelligence_service.process(findings)
 
             inserted += 1
             highest_record_id = event["record_id"]

@@ -4,7 +4,7 @@ Enterprise Telemetry Platform is a Python-based security telemetry project for c
 
 It is designed as an extensible platform for collecting, normalizing, storing, and querying system, security, and performance data across Windows, Linux, Proxmox, and future infrastructure.
 
-The current version focuses on Windows Event Log and Sysmon collection, PostgreSQL storage, process event extraction, collector state tracking, host health metrics, deterministic detection finding persistence, persistable correlation matches, persistable risk assessments, persistable alerts, and a small FastAPI query service.
+The current version focuses on Windows Event Log and Sysmon collection, PostgreSQL storage, process event extraction, collector state tracking, host health metrics, deterministic detection finding persistence, live deterministic intelligence orchestration, persistable correlation matches, persistable risk assessments, persistable alerts, and a small FastAPI query service.
 
 ## Current Features
 
@@ -21,6 +21,9 @@ The current version focuses on Windows Event Log and Sysmon collection, PostgreS
 - Deterministic correlation of detection findings with PostgreSQL persistence support
 - Deterministic risk assessment for correlation matches with PostgreSQL persistence support
 - Deterministic alert generation from risk assessments with PostgreSQL persistence support
+- Live intelligence orchestration inside the Windows source transaction
+- Detection finding deduplication with stable source-event and rule identity
+- Correlation deduplication with stable deterministic correlation keys
 
 ## Current Architecture
 
@@ -210,6 +213,10 @@ Telemetry-Platform/
 |   |   `-- rules.py
 |   |-- health_metrics.py
 |   |-- ingest.py
+|   |-- intelligence/
+|   |   |-- __init__.py
+|   |   |-- models.py
+|   |   `-- service.py
 |   |-- repository.py
 |   |-- risk/
 |   |   |-- __init__.py
@@ -234,6 +241,8 @@ Telemetry-Platform/
 |   |-- 006_create_risk_assessments.sql
 |   |-- 007_create_alerts.sql
 |   |-- 008_create_intelligence_indexes.sql
+|   |-- 009_add_correlation_deduplication.sql
+|   |-- 010_add_detection_finding_deduplication.sql
 |   `-- basic_queries.sql
 |-- docs/
 |   |-- adr/
@@ -252,7 +261,8 @@ Telemetry-Platform/
 |   |-- 12_Correlation_Engine.md
 |   |-- 13_Risk_Engine.md
 |   |-- 14_Alert_Engine.md
-|   `-- 15_Intelligence_Persistence.md
+|   |-- 15_Intelligence_Persistence.md
+|   `-- 16_Intelligence_Orchestration.md
 |-- diagrams/
 |-- screenshots/
 |-- tests/

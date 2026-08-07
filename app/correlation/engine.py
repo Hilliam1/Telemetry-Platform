@@ -133,7 +133,7 @@ class CorrelationEngine:
         )
 
         groups = self._group_findings(
-            eligible,
+            self._deduplicate_findings(eligible),
             rule.group_by,
         )
 
@@ -183,6 +183,40 @@ class CorrelationEngine:
                 start = end + 1
 
         return tuple(results)
+
+    @staticmethod
+    def _deduplicate_findings(
+        findings: tuple[DetectionFinding, ...],
+    ) -> tuple[DetectionFinding, ...]:
+        unique: dict[
+            tuple[
+                str,
+                str,
+                int,
+                int | str,
+                str,
+                int,
+            ],
+            DetectionFinding,
+        ] = {}
+
+        for finding in findings:
+            key = (
+                finding.source_host,
+                finding.source_type,
+                finding.event_id,
+                (
+                    finding.event_record_id
+                    if finding.event_record_id is not None
+                    else finding.finding_id
+                ),
+                finding.rule_id,
+                finding.rule_version,
+            )
+
+            unique.setdefault(key, finding)
+
+        return tuple(unique.values())
 
     @staticmethod
     def _group_findings(

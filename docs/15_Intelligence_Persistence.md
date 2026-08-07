@@ -174,13 +174,13 @@ both the assessment ID and correlation ID.
 
 ## Limitations
 
-Phase 15 makes correlation matches, risk assessments, and alerts persistable,
-but it does not yet connect historical correlation to the live collector.
+Phase 15 made correlation matches, risk assessments, and alerts persistable,
+but did not connect historical correlation to the live collector. Phase 16 adds
+that live orchestration through `app/intelligence/service.py`.
 
-The collector currently evaluates detections during Windows event ingestion and
-persists findings. Historical correlation needs a later orchestration layer that
-can load previous findings, evaluate correlation windows, persist derived
-intelligence, and avoid duplicate matches.
+At the Phase 15 boundary, historical correlation orchestration was deliberately
+deferred. Phase 16 later adds that orchestration layer, including historical
+finding lookup and duplicate correlation prevention.
 
 Phase 15 also does not add:
 
