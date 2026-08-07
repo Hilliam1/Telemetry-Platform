@@ -24,6 +24,31 @@ def test_invalid_api_key_is_rejected():
     assert service.authenticate_api_key("wrong") is None
 
 
+def test_non_ascii_key_can_be_compared_safely():
+    service = AuthenticationService(
+        api_key="telemetry-secret-é",
+    )
+
+    principal = service.authenticate_api_key(
+        "telemetry-secret-é"
+    )
+
+    assert principal is not None
+
+
+def test_wrong_non_ascii_key_is_rejected():
+    service = AuthenticationService(
+        api_key="telemetry-secret-é",
+    )
+
+    assert (
+        service.authenticate_api_key(
+            "telemetry-wrong-é"
+        )
+        is None
+    )
+
+
 def test_empty_presented_key_is_rejected():
     service = AuthenticationService(
         api_key="secret",

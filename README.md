@@ -310,8 +310,7 @@ Telemetry-Platform/
 |   |-- 15_Intelligence_Persistence.md
 |   |-- 16_Intelligence_Orchestration.md
 |   |-- 17_Intelligence_API.md
-|   |-- 18_Authentication_Authorization.md
-|   `-- phase_18_api_auth.md
+|   `-- 18_Authentication_Authorization.md
 |-- diagrams/
 |-- screenshots/
 |-- tests/

@@ -21,7 +21,7 @@ class AuthenticationService:
                 "Authentication API key cannot be empty"
             )
 
-        self._api_key = api_key
+        self._api_key = api_key.encode("utf-8")
 
     def authenticate_api_key(
         self,
@@ -31,7 +31,7 @@ class AuthenticationService:
             return None
 
         if not hmac.compare_digest(
-            presented_key,
+            presented_key.encode("utf-8"),
             self._api_key,
         ):
             return None
